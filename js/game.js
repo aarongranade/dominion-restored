@@ -10,7 +10,7 @@ function freshState() {
   const s = {
     mode: 'title', t: 0, p: newPlayer(), room: null, loc: { kind: 'over', idx: 0 }, cleared: Array(10).fill(false), broken: {}, seen: {},
     ds: Array.from({ length: 10 }, () => ({ unlocked: {}, cleared: {}, taken: {}, keys: 0, bossOpen: false, item: false, boss: false, visited: {} })),
-    shake: 0, dialog: null, bannerQ: null, trans: null, fade: null, godmode: false, menu: 0, timer: 0, entry: { x: 128, y: 120 }, msg: null, ended: false
+    shake: 0, dialog: null, bannerQ: null, trans: null, fade: null, godmode: false, menu: 0, timer: 0, entry: { x: 128, y: 120 }, msg: null, ended: false, owMemo: {}
   };
   return Object.assign(s, GM);
 }
@@ -43,6 +43,7 @@ const GM = {
   onEntrance(tx, ty) {
     if (G.mode !== 'play' || G.room.kind !== 'over') return;
     const d = G.room.info.entrance.d;
+    owRemember(G.room);
     G.overPos = { idx: G.room.idx, x: tx * 16 + 8, y: (ty + 1) * 16 + 10 };
     Aud.sfx('door');
     startFade(() => enterDungeon(d));
@@ -101,9 +102,23 @@ function freeSpot(minD, fly) {
   }
   return list.length ? pick(list) : [128, 60];
 }
+function owRemember(room) {
+  if (room && room.kind === 'over') G.owMemo[room.idx] = room.enemies.filter(e => e.hp > 0).map(e => ({ id: e.id, x: e.x, y: e.y, hp: e.hp }));
+}
+function owForgetFar(idx) {
+  const [x, y] = ORDER[idx];
+  for (const k in G.owMemo) { const [a, b] = ORDER[k]; if (Math.abs(a - x) + Math.abs(b - y) > 1) delete G.owMemo[k]; }
+}
 function populate(room, fromSlide) {
   const p = G.p;
   if (room.kind === 'over') {
+    // enemies only come back once you've been more than one screen away; a quick step out and back keeps them as you left them
+    owForgetFar(room.idx);
+    const memo = G.owMemo[room.idx];
+    if (memo) {
+      for (const s of memo) { let [x, y] = [s.x, s.y]; if (dist(x, y, p.x, p.y) < 40) [x, y] = freeSpot(70); const e = spawnEnemy(s.id, x, y); e.hp = s.hp; }
+      return;
+    }
     const n = room.idx === 0 ? 2 : 2 + (Math.random() * 2 | 0) + (room.idx > 9 ? 1 : 0), pool = OPOOL[room.k - 1];
     for (let i = 0; i < n; i++) { const [x, y] = freeSpot(70); spawnEnemy(pick(pool), x, y); }
     return;
@@ -162,7 +177,7 @@ function enterDungeon(d) {
 function slide(dir) {
   if (G.mode !== 'play') return;
   let next, nloc;
-  if (G.loc.kind === 'over') { const ni = G.room.exits[dir]; if (ni === undefined) return; next = makeRoom(buildOverRoom(ni, G)); nloc = { kind: 'over', idx: ni }; }
+  if (G.loc.kind === 'over') { const ni = G.room.exits[dir]; if (ni === undefined) return; owRemember(G.room); next = makeRoom(buildOverRoom(ni, G)); nloc = { kind: 'over', idx: ni }; }
   else { const cell = G.room.cell.exits[dir]; if (!cell) return; next = makeRoom(buildDunRoom(G, G.loc.d, cell)); nloc = { kind: 'dun', d: G.loc.d, cell: cell.key }; }
   const deep = G.loc.kind === 'dun' ? 24 : 12, p = G.p;
   let nx = p.x, ny = p.y;
@@ -205,6 +220,7 @@ function applySave(s) {
   loadOver(s.ow.idx, s.ow.x, s.ow.y);
 }
 function respawn() {
+  G.owMemo = {}; // a fresh start after falling
   const p = G.p; p.hp = p.max; p.faith = p.maxFaith; p.inv = 1.5; p.confuse = 0; p.fall = 0; p.kbt = 0; p.dove = null;
   if (G.loc.kind === 'dun') {
     const d = G.loc.d, dn = parseDungeon(d), start = Object.values(dn.cells).find(c => c.start);
