@@ -53,8 +53,20 @@ class Serpent extends Boss {
   }
   rawParts() {
     const out = [{ x: this.x, y: this.y, hw: 7, hh: 7, vuln: true, id: 'head' }];
-    for (let i = 1; i < this.n; i++) { const s = this.seg(i); out.push({ x: s[0], y: s[1], hw: 5, hh: 5, vuln: false, id: 's' + i }); }
+    for (let i = 1; i < this.n; i++) {
+      const s = this.seg(i), tip = i === this.n - 1; // the tail tip can be struck off
+      out.push({ x: s[0], y: s[1], hw: tip ? 6 : 5, hh: tip ? 6 : 5, vuln: tip, id: tip ? 'tail' + i : 's' + i });
+    }
     return out;
+  }
+  hit(part, dmg, src) {
+    if (!part.id.startsWith('tail')) return super.hit(part, dmg, src);
+    if (this.tailCd > 0) return 'block';
+    // each hit on the tail tip severs that segment and costs 10% of its life
+    this.tailCd = .4; this.n--;
+    fxBurst(part.x, part.y, ['#48b848', '#7ad858', '#f8e838'], 12, 70, .5, 2);
+    this.damage(this.max * .1, part, src);
+    return 'dmg';
   }
   seg(i) { const k = Math.min(this.trail.length - 1, i * 4); return this.trail[k]; }
   ai(dt) {
@@ -62,6 +74,7 @@ class Serpent extends Boss {
     // half speed and no lunges until its life drops to 10%, then full speed with lunges
     const frenzy = this.ratio <= 0.1;
     this.st -= dt;
+    if (this.tailCd > 0) this.tailCd -= dt;
     let spd = (52 + rage * 38) * (frenzy ? 1 : 0.5), turn = 2.3;
     if (this.state === 'slither') {
       if (dist(this.x, this.y, this.tx, this.ty) < 14 || this.st < -6) { this.tx = rnd(ARENA.x0 + 10, ARENA.x1 - 10); this.ty = rnd(ARENA.y0 + 10, ARENA.y1 - 10); this.st = 0; }
@@ -97,6 +110,7 @@ class Serpent extends Boss {
     for (let i = this.n - 1; i >= 1; i--) {
       const s = this.seg(i), r = 6 - Math.floor(i / 5), x = Math.round(s[0]), y = Math.round(s[1]);
       disc(c, '#1f5a1f', x, y, r + 1); disc(c, i % 2 ? '#48b848' : '#7ad858', x, y, r); if (i % 2) R(c, '#f8e838', x - 1, y - 1, 2, 2);
+      if (i === this.n - 1) { disc(c, '#601010', x, y, r + 1); disc(c, Math.floor(this.t * 6) % 2 ? '#f83838' : '#f8a038', x, y, r); R(c, '#fff0a0', x - 1, y - 1, 2, 2); } // glowing tail tip: strike here
     }
     const x = Math.round(this.x), y = Math.round(this.y), f = [Math.cos(this.ang), Math.sin(this.ang)], pr = [-f[1], f[0]];
     disc(c, '#1f5a1f', x, y, 8); disc(c, '#58c848', x, y, 7); disc(c, '#7ad858', x - 1, y - 1, 4);
