@@ -2,7 +2,7 @@
 const { chromium } = require(process.env.PW || 'playwright');
 (async () => {
   const [q, out, act, w, h] = process.argv.slice(2);
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] });
+  const b = await chromium.launch({ executablePath: process.env.CHROME || undefined, args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] });
   const pg = await b.newPage({ viewport: { width: +(w || 420), height: +(h || 800) }, hasTouch: true });
   const errs = [];
   pg.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') errs.push(m.type() + ': ' + m.text()); });

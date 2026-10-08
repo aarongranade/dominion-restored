@@ -1,7 +1,7 @@
 const { chromium } = require(process.env.PW || 'playwright'); const fs = require('fs');
 (async () => {
   const which = (process.argv[2] || '1,2,3,4,5,6,7,8,9,10').split(',').map(Number), secs = +(process.argv[3] || 6);
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] });
+  const b = await chromium.launch({ executablePath: process.env.CHROME || undefined, args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] });
   const botSrc = fs.readFileSync(__dirname + '/bot.js', 'utf8');
   for (const d of which) {
     const pg = await b.newPage({ viewport: { width: 760, height: 560 } });

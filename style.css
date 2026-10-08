@@ -18,6 +18,15 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;aspec
 .act.a{right:max(16px,env(safe-area-inset-right));bottom:calc(30px + env(safe-area-inset-bottom));background:rgba(200,50,50,.55)}
 .act.b{right:calc(max(16px,env(safe-area-inset-right)) + 88px);bottom:calc(76px + env(safe-area-inset-bottom));background:rgba(50,100,210,.55)}
 .act.on,.pill.on{filter:brightness(1.8)}
+/* narrow phones: slightly smaller controls so nothing overlaps */
+@media (max-width:420px){
+  #dpad{width:126px;height:126px;left:max(8px,env(safe-area-inset-left))}
+  #knob{width:46px;height:46px;margin:-23px 0 0 -23px}
+  .act{width:62px;height:62px;font-size:21px}
+  .act.a{right:max(8px,env(safe-area-inset-right));bottom:calc(24px + env(safe-area-inset-bottom))}
+  .act.b{right:calc(max(8px,env(safe-area-inset-right)) + 68px);bottom:calc(66px + env(safe-area-inset-bottom))}
+  .pill{min-width:64px;padding:8px 6px;font-size:12px}
+}
 /* landscape phones: game fills the height, controls float over the sides */
 @media (orientation:landscape) and (max-height:560px){
   #app{flex-direction:row}

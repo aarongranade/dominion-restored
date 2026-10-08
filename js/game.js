@@ -89,13 +89,17 @@ function makeRoom(r) {
   r.fireOn = (tx, ty) => Math.floor(G.t * 1.1 + tx * .5 + ty * .3) % 2 === 0; return r;
 }
 function freeSpot(minD, fly) {
-  const rm = G.room, p = G.p;
-  for (let i = 0; i < 60; i++) {
-    const tx = 2 + (Math.random() * 12 | 0), ty = 2 + (Math.random() * 8 | 0), t = rm.tiles[ty * 16 + tx];
-    if (SOLID.has(t) || t === T.PIT || t === T.FIRE || t === T.EXIT || t === T.SPRING || (t === T.GOLD && false)) continue;
-    const x = tx * 16 + 8, y = ty * 16 + 8; if (dist(x, y, p.x, p.y) < minD) continue; return [x, y];
+  const rm = G.room, p = G.p, t = rm.tiles, sx = clamp(Math.floor(p.x / 16), 0, 15), sy = clamp(Math.floor((p.y + 4) / 16), 0, 11);
+  // flood fill from the player so nothing spawns in a walled-off pocket
+  const seen = new Uint8Array(192), q = [[sx, sy]], list = []; seen[sy * 16 + sx] = 1;
+  const ok = (x, y) => x >= 0 && x < 16 && y >= 0 && y < 12 && !seen[y * 16 + x] && !SOLID.has(t[y * 16 + x]) && t[y * 16 + x] !== T.PIT && t[y * 16 + x] !== T.FIRE;
+  while (q.length) {
+    const [x, y] = q.pop();
+    for (const [dx, dy] of DIRV) { const nx = x + dx, ny = y + dy; if (ok(nx, ny)) { seen[ny * 16 + nx] = 1; q.push([nx, ny]); } }
+    const ty = t[y * 16 + x];
+    if (x > 0 && x < 15 && y > 0 && y < 11 && ty !== T.EXIT && ty !== T.SPRING && ty !== T.ENTRANCE && dist(x * 16 + 8, y * 16 + 8, p.x, p.y) >= minD) list.push([x * 16 + 8, y * 16 + 8]);
   }
-  return [128, 60];
+  return list.length ? pick(list) : [128, 60];
 }
 function populate(room, fromSlide) {
   const p = G.p;
@@ -225,8 +229,7 @@ function updateRoom(dt) {
     rm.boss.update(dt);
     if (!rm.boss.dead && !rm.boss.dying) for (const part of rm.boss.parts()) if (part.harm !== false && overlap(part, hb(p)) && p.inv <= 0) hurtPlayer(rm.boss.touch, part.x, part.y, rm.boss);
   }
-  if (rm.wind && rm.wind[0] === 0 && rm.wind[1] === 0 && rm.cell && rm.cell.mod === 'pinnacle') { rm.windT = (rm.windT || 0) + dt; rm.wind = [Math.sin(rm.windT * .7) > 0 ? 18 : -18, 0]; }
-  else if (rm.cell && rm.cell.mod === 'pinnacle') { rm.windT = (rm.windT || 0) + dt; rm.wind = [Math.sin(rm.windT * .7) > 0 ? 18 : -18, 0]; }
+  if (rm.cell && rm.cell.mod === 'pinnacle') { rm.windT = (rm.windT || 0) + dt; rm.wind = [Math.sin(rm.windT * .7) > 0 ? 18 : -18, 0]; } // gusts on the pinnacle
   if (rm.kind === 'dun' && rm.shut && !rm.boss && !rm.bossWait && rm.enemies.length === 0) onRoomCleared(rm);
   // key pickups bookkeeping
   if (rm.beam) { rm.beam.t += dt; if (dist(p.x, p.y, rm.beam.x, rm.beam.y + 8) < 14 && G.mode === 'play') dungeonComplete(); }

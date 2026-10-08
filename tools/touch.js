@@ -1,6 +1,6 @@
 const { chromium } = require(process.env.PW || 'playwright');
 (async () => {
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
+  const b = await chromium.launch({ executablePath: process.env.CHROME || undefined, args: ['--no-sandbox'] });
   const ctx = await b.newContext({ viewport: { width: 390, height: 780 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
   const pg = await ctx.newPage(); const errs = []; pg.on('pageerror', e => errs.push(e.message));
   await pg.goto('http://localhost:8765/index.html'); await pg.waitForTimeout(400);

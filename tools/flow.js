@@ -2,7 +2,7 @@
 const { chromium } = require(process.env.PW || 'playwright');
 (async () => {
   const which = (process.argv[2] || '1,2,3,4,5,6,7,8,9,10').split(',').map(Number);
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
+  const b = await chromium.launch({ executablePath: process.env.CHROME || undefined, args: ['--no-sandbox'] });
   for (const d of which) {
     const pg = await b.newPage({ viewport: { width: 700, height: 600 } });
     const errs = []; pg.on('console', m => { if (m.type() === 'error') errs.push(m.text()); }); pg.on('pageerror', e => errs.push('PAGEERROR ' + e.message + ' ' + (e.stack || '').split('\n')[1]));
