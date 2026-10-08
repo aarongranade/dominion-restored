@@ -1,0 +1,5 @@
+{
+  "profiles": {
+    "Android": { "commandName": "Project", "nativeDebugging": false }
+  }
+}

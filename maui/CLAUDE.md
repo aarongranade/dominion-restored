@@ -1,5 +1,7 @@
 # CLAUDE.md: .NET MAUI Blazor Hybrid wrapper for Dominion Restored
 
+> Status: the project in `DominionRestored/` has been created following this plan (sections 1 to 4), along with the sync scripts and CI. Use the rest of this file as the reference for remaining work: device testing (section 5 checklist), signing and store release (section 6). Keep the conventions below when changing the app.
+
 Goal: wrap the web game in this repo (`../index.html`, `../style.css`, `../js/*.js`) in a .NET MAUI Blazor Hybrid app so it can ship to the Apple App Store and Google Play. The game is plain static HTML/JS (no build step), so the app is a thin shell: a `BlazorWebView` that shows the game inside an `<iframe>`. Do not rewrite game logic in C#.
 
 ## Ground rules

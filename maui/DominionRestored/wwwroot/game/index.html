@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b0b14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="Dominion Restored - an 8-bit, Bible-themed action adventure from Eden to Revelation.">
+<title>Dominion Restored</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <div id="stage"><canvas id="screen" width="256" height="224"></canvas></div>
+  <div id="controls">
+    <div id="dpad" aria-label="Move"><div id="knob"></div>
+      <span class="arr u">&#9650;</span><span class="arr d">&#9660;</span><span class="arr l">&#9664;</span><span class="arr r">&#9654;</span>
+    </div>
+    <div id="mid">
+      <button id="btnSel" class="pill" aria-label="Cycle item">ITEM</button>
+      <button id="btnStart" class="pill" aria-label="Pause">START</button>
+    </div>
+    <div id="acts">
+      <button id="btnB" class="act b" aria-label="Use item">B</button>
+      <button id="btnA" class="act a" aria-label="Attack">A</button>
+    </div>
+  </div>
+</div>
+<noscript>Dominion Restored needs JavaScript.</noscript>
+<script src="js/core.js"></script>
+<script src="js/gfx.js"></script>
+<script src="js/data.js"></script>
+<script src="js/world.js"></script>
+<script src="js/combat.js"></script>
+<script src="js/bosses.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

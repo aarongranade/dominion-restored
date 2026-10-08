@@ -1,0 +1,10 @@
+bin/
+obj/
+.vs/
+*.user
+# signing material never goes in the repo
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+*.cer

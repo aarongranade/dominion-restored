@@ -1,0 +1,50 @@
+:root{--bg:#0b0b14;--pad:rgba(255,255,255,.10);--padb:rgba(255,255,255,.35);--gold:#f8c838}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#000;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;overscroll-behavior:none;font-family:monospace}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg)}
+#stage{flex:0 0 auto;display:flex;justify-content:center;background:#000}
+canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;aspect-ratio:256/224;
+  width:min(100vw,calc((100vh - 210px) * 256 / 224));width:min(100vw,calc((100dvh - 210px) * 256 / 224));background:#000}
+#controls{flex:1 1 auto;position:relative;min-height:190px;padding-bottom:env(safe-area-inset-bottom)}
+#dpad{position:absolute;left:max(14px,env(safe-area-inset-left));bottom:calc(18px + env(safe-area-inset-bottom));width:150px;height:150px;border-radius:50%;
+  background:radial-gradient(circle,var(--pad),rgba(255,255,255,.04));border:3px solid var(--padb);touch-action:none}
+#dpad .arr{position:absolute;color:rgba(255,255,255,.45);font-size:16px;line-height:1}
+#dpad .u{left:50%;top:8px;transform:translateX(-50%)}#dpad .d{left:50%;bottom:8px;transform:translateX(-50%)}
+#dpad .l{top:50%;left:10px;transform:translateY(-50%)}#dpad .r{top:50%;right:10px;transform:translateY(-50%)}
+#knob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:rgba(248,200,56,.35);border:3px solid rgba(248,200,56,.8);pointer-events:none;transition:transform .04s}
+#mid{position:absolute;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;flex-direction:column;gap:10px;align-items:center}
+.pill{font:bold 13px monospace;letter-spacing:1px;color:#fff;background:rgba(255,255,255,.14);border:2px solid var(--padb);border-radius:14px;padding:9px 12px;min-width:74px;touch-action:none}
+.act{position:absolute;width:78px;height:78px;border-radius:50%;font:bold 26px monospace;color:#fff;border:3px solid rgba(255,255,255,.55);touch-action:none}
+.act.a{right:max(16px,env(safe-area-inset-right));bottom:calc(30px + env(safe-area-inset-bottom));background:rgba(200,50,50,.55)}
+.act.b{right:calc(max(16px,env(safe-area-inset-right)) + 88px);bottom:calc(76px + env(safe-area-inset-bottom));background:rgba(50,100,210,.55)}
+.act.on,.pill.on{filter:brightness(1.8)}
+/* narrow phones: slightly smaller controls so nothing overlaps */
+@media (max-width:420px){
+  #dpad{width:126px;height:126px;left:max(8px,env(safe-area-inset-left))}
+  #knob{width:46px;height:46px;margin:-23px 0 0 -23px}
+  .act{width:62px;height:62px;font-size:21px}
+  .act.a{right:max(8px,env(safe-area-inset-right));bottom:calc(24px + env(safe-area-inset-bottom))}
+  .act.b{right:calc(max(8px,env(safe-area-inset-right)) + 68px);bottom:calc(66px + env(safe-area-inset-bottom))}
+  .pill{min-width:64px;padding:8px 6px;font-size:12px}
+}
+/* landscape phones: game fills the height, controls float over the sides */
+@media (orientation:landscape) and (max-height:560px){
+  #app{flex-direction:row}
+  #stage{position:absolute;inset:0;background:#000}
+  canvas{height:100vh;height:100dvh;width:auto;max-width:100vw}
+  #controls{position:absolute;inset:0;pointer-events:none;min-height:0}
+  #controls>*{pointer-events:auto}
+  #dpad{width:130px;height:130px;bottom:calc(14px + env(safe-area-inset-bottom))}
+  #knob{width:48px;height:48px;margin:-24px 0 0 -24px}
+  .act{width:66px;height:66px;font-size:22px}
+  .act.a{bottom:calc(18px + env(safe-area-inset-bottom))}
+  .act.b{right:calc(max(16px,env(safe-area-inset-right)) + 74px);bottom:calc(60px + env(safe-area-inset-bottom))}
+  #mid{left:auto;right:max(16px,env(safe-area-inset-right));top:10px;bottom:auto;transform:none;flex-direction:row}
+  .pill{padding:6px 9px;min-width:0;font-size:11px;opacity:.7}
+  #dpad,.act{opacity:.62}
+}
+/* desktop: keep the pad out of the way */
+@media (hover:hover) and (pointer:fine) and (min-width:900px){
+  #controls{display:none}
+  canvas{width:min(100vw,calc(100vh * 256 / 224));width:min(100vw,calc(100dvh * 256 / 224))}
+}
