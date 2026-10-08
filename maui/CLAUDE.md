@@ -63,20 +63,20 @@ Note: the game has its own `#app` element. Because it runs in an iframe it is is
 ## 5. Build and run
 ```sh
 ./scripts/sync-game.sh
-dotnet build -t:Run -f net9.0-android          # emulator or device
-dotnet build -t:Run -f net9.0-ios              # Mac only, simulator
+dotnet build -t:Run -f net10.0-android          # emulator or device
+dotnet build -t:Run -f net10.0-ios              # Mac only, simulator
 ```
-Replace `net9.0` with the TFM in the csproj. Verify on a real phone: title screen taps work, on-screen controls respond with multitouch (stick + A at once), music plays after first tap, rotating the device re-lays-out, saving then force-quitting then relaunching continues the game, and the game reaches 60 fps.
+Replace `net10.0` with the TFM in the csproj. Verify on a real phone: title screen taps work, on-screen controls respond with multitouch (stick + A at once), music plays after first tap, rotating the device re-lays-out, saving then force-quitting then relaunching continues the game, and the game reaches 60 fps.
 
 ## 6. Store release
 **Android (Google Play)**
 1. Generate an upload keystore (ask the user to keep it safe; never commit it). Put the path and passwords in user secrets or env vars, not the csproj.
-2. `dotnet publish -f net9.0-android -c Release -p:AndroidPackageFormats=aab -p:AndroidKeyStore=true ...` to produce a signed `.aab`.
+2. `dotnet publish -f net10.0-android -c Release -p:AndroidPackageFormats=aab -p:AndroidKeyStore=true ...` to produce a signed `.aab`.
 3. Play Console: create the app, fill the content rating questionnaire, data safety form (the game collects no data), target audience, upload the `.aab`, add screenshots and the description below.
 
 **iOS (App Store)** (Mac required)
 1. Apple Developer Program membership; create the App ID, distribution certificate and App Store provisioning profile.
-2. `dotnet publish -f net9.0-ios -c Release -p:ArchiveOnBuild=true -p:CodesignKey="Apple Distribution: ..." -p:CodesignProvision="..."`, then upload the `.ipa` with Transporter.
+2. `dotnet publish -f net10.0-ios -c Release -p:ArchiveOnBuild=true -p:CodesignKey="Apple Distribution: ..." -p:CodesignProvision="..."`, then upload the `.ipa` with Transporter.
 3. App Store Connect: age rating, privacy "Data Not Collected", screenshots, review notes.
 
 **Store listing text (draft, edit with the user)**

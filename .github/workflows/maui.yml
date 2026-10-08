@@ -28,12 +28,12 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: microsoft, java-version: '17' }
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: '9.0.x' }
+        with: { dotnet-version: '10.0.x' }
       - run: dotnet workload install maui-android
       - name: Android SDK dependencies
-        run: dotnet build $PROJECT -t:InstallAndroidDependencies -f net9.0-android -p:AndroidSdkDirectory="$ANDROID_SDK_ROOT" -p:AcceptAndroidSDKLicenses=True
+        run: dotnet build $PROJECT -t:InstallAndroidDependencies -f net10.0-android -p:TargetFrameworks=net10.0-android -p:AndroidSdkDirectory="$ANDROID_SDK_ROOT" -p:AcceptAndroidSDKLicenses=True
       - name: Build release APK (debug-signed, installable for testing)
-        run: dotnet publish $PROJECT -f net9.0-android -c Release -p:AndroidPackageFormats=apk -p:AndroidSdkDirectory="$ANDROID_SDK_ROOT" -o out/android
+        run: dotnet publish $PROJECT -f net10.0-android -p:TargetFrameworks=net10.0-android -c Release -p:AndroidPackageFormats=apk -p:AndroidSdkDirectory="$ANDROID_SDK_ROOT" -o out/android
       - uses: actions/upload-artifact@v4
         with:
           name: dominion-restored-android
@@ -44,8 +44,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: '9.0.x' }
-      - run: sudo xcode-select -s /Applications/Xcode_16.4.app || true
+        with: { dotnet-version: '10.0.x' }
+      - name: Use the newest installed Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)" && xcodebuild -version
       - run: dotnet workload install maui-ios
       - name: Build for the iOS simulator (no signing needed)
-        run: dotnet build $PROJECT -f net9.0-ios -c Debug -p:RuntimeIdentifier=iossimulator-arm64
+        run: dotnet build $PROJECT -f net10.0-ios -p:TargetFrameworks=net10.0-ios -c Debug -p:RuntimeIdentifier=iossimulator-arm64

@@ -60,7 +60,7 @@ public partial class MainPage : ContentPage
         SendToGame("pause");
         Dispatcher.Dispatch(async () =>
         {
-            bool quit = await DisplayAlert("Quit Dominion Restored?", "Your progress is saved whenever you change screens or win a treasure.", "Quit", "Keep playing");
+            bool quit = await DisplayAlertAsync("Quit Dominion Restored?", "Your progress is saved whenever you change screens or win a treasure.", "Quit", "Keep playing");
             _confirmingQuit = false;
             if (quit) Application.Current?.Quit();
         });
