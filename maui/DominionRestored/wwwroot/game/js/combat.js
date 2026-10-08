@@ -308,16 +308,18 @@ function updatePlayer(dt) {
   let mx = Input.dx, my = Input.dy; if (p.confuse > 0) { mx = -mx; my = -my; }
   const busy = G.mode !== 'play';
   p.moving = false;
+  // facing follows the newest direction pressed: going diagonal turns the hero (and sword) toward the
+  // direction just added, e.g. holding up then adding right faces right
+  if (!busy && (mx !== p.lmx || my !== p.lmy)) {
+    if (mx && my) p.want = mx !== p.lmx && my === p.lmy ? (mx > 0 ? 3 : 2) : my !== p.lmy && mx === p.lmx ? (my > 0 ? 0 : 1) : (mx > 0 ? 3 : 2);
+    else if (mx) p.want = mx > 0 ? 3 : 2; else if (my) p.want = my > 0 ? 0 : 1;
+    p.lmx = mx; p.lmy = my;
+  }
   if (p.kbt > 0) { p.kbt -= dt; moveEnt(p, p.kbx * dt, p.kby * dt); }
   else if (!busy && (mx || my)) {
     const sp = 68 * (p.atk > 0 ? .45 : 1) * (tileAtPx(p.x, p.y + 4) === T.WATER ? .6 : 1), n = mx && my ? .7071 : 1;
     moveEnt(p, mx * sp * n * dt, my * sp * n * dt);
-    if (p.atk <= 0) {
-      const horiz = mx !== 0, vert = my !== 0;
-      const cur = p.dir; // keep facing when moving diagonally
-      if (horiz && !vert) p.dir = mx > 0 ? 3 : 2; else if (vert && !horiz) p.dir = my > 0 ? 0 : 1;
-      else if (!((cur === 2 && mx < 0) || (cur === 3 && mx > 0) || (cur === 0 && my > 0) || (cur === 1 && my < 0))) p.dir = mx > 0 ? 3 : 2;
-    }
+    if (p.atk <= 0 && p.want !== undefined) p.dir = p.want;
     p.moving = true; p.anim += dt;
   }
   if (rm.wind && !busy) { moveEnt(p, rm.wind[0] * dt, rm.wind[1] * dt); }
