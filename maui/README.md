@@ -12,7 +12,7 @@ A thin native shell around the web game. `DominionRestored/` is a .NET 10 MAUI B
 - App icon and splash screen from the game's gold cross emblem.
 
 ## Build
-Requirements: .NET 10 SDK, then `dotnet workload install maui`. Android needs JDK 17 and the Android SDK (Visual Studio or `-t:InstallAndroidDependencies` installs it). iOS needs a Mac with Xcode.
+Requirements: .NET 10 SDK, then `dotnet workload install maui`. Android needs JDK 17 and the Android SDK (Visual Studio or `-t:InstallAndroidDependencies` installs it). iOS needs a Mac with the Xcode version your .NET iOS SDK asks for (the build error names it).
 
 ```sh
 ./maui/scripts/sync-game.sh      # after any change to the game (sync-game.ps1 on Windows)
