@@ -18,7 +18,7 @@ function freshState() {
 /* ---------- save / load ---------- */
 const GM = {
   save() {
-    if (G.mode === 'title') return;
+    if (G.mode === 'title' || G.testing) return; // boss-test runs never touch the real save
     const p = G.p, ow = G.loc.kind === 'over' ? { idx: G.loc.idx, x: G.p.x, y: G.p.y } : G.overPos;
     Save.write({
       v: 1, p: { hp: p.max, max: p.max, sword: p.sword, items: p.items, shield: p.shield, armor: p.armor, crown: p.crown, sel: p.sel },
@@ -205,6 +205,7 @@ function applySave(s) {
   loadOver(s.ow.idx, s.ow.x, s.ow.y);
 }
 function respawn() {
+  if (G.testing) { testBoss(G.testing - 1); return; }
   const p = G.p; p.hp = p.max; p.faith = p.maxFaith; p.inv = 1.5; p.confuse = 0; p.fall = 0; p.kbt = 0; p.dove = null;
   if (G.loc.kind === 'dun') {
     const d = G.loc.d, dn = parseDungeon(d), start = Object.values(dn.cells).find(c => c.start);
@@ -292,14 +293,38 @@ function update(dt) {
 function toTitle() { G = freshState(); G.mode = 'title'; G.menu = 0; Aud.music('title'); Input.clear(); }
 
 /* ---------- title / pause / ending ---------- */
+/* title menu entries; TEST jumps straight to a boss for playtesting (temporary, remove before release) */
+const MENU_Y = 150, MENU_DY = 13;
+function titleOptions() {
+  const o = Save.has() ? [['continue', 'CONTINUE']] : [];
+  o.push(['new', 'NEW GAME'], ['test1', 'TEST: SERPENT BOSS'], ['sound', 'SOUND: ' + (Aud.muted ? 'OFF' : 'ON')]);
+  return o;
+}
+/* drops a throwaway game straight into dungeon d's boss room, with the gear you'd have by then */
+function testBoss(d) {
+  G = freshState(); G.mode = 'play'; G.testing = d + 1;
+  const p = G.p; p.max = 6 + 2 * d; p.hp = p.max;
+  const give = ['flame', 'dove', 'bow', 'rod', 'shofar', 'sling', 'shield', 'spirit', 'armor'];
+  for (let i = 0; i <= d && i < give.length; i++) {
+    const it = give[i]; if (i < d) G.cleared[i] = true;
+    if (it === 'flame') p.sword = Math.max(p.sword, 1); else if (it === 'spirit') p.sword = 2; else if (it === 'shield') p.shield = true; else if (it === 'armor') p.armor = true; else p.items[it] = true;
+  }
+  p.sel = ACTIVE_ITEMS.find(i => p.items[i]) || null;
+  const ds = G.ds[d]; ds.item = true; ds.bossOpen = true; G.overPos = { idx: d * 2 + 1, x: 128, y: 60 };
+  enterDungeon(d); G.bannerQ = null;
+  const b = Object.values(parseDungeon(d).cells).find(c => c.boss);
+  G.loc.cell = b.key; G.room = makeRoom(buildDunRoom(G, d, b)); p.x = 128; p.y = 164; p.dir = 1; p.lastSafe = { x: 128, y: 164 };
+  populate(G.room);
+}
 function updateTitle(dt) {
-  const has = Save.has(), opts = has ? 3 : 2;
+  const opts = titleOptions().length;
   if (Input.consume('mup')) { G.menu = (G.menu + opts - 1) % opts; Aud.sfx('select'); }
   if (Input.consume('mdown')) { G.menu = (G.menu + 1) % opts; Aud.sfx('select'); }
   if (Input.consume('a') || Input.consume('start')) {
     Aud.init(); Aud.resume(); Aud.sfx('confirm');
-    const labels = has ? ['continue', 'new', 'sound'] : ['new', 'sound'], sel = labels[G.menu];
-    if (sel === 'new') newGame(); else if (sel === 'continue') { const s = Save.load(); if (s) applySave(s); else newGame(); }
+    const sel = titleOptions()[G.menu][0];
+    if (sel === 'test1') testBoss(0);
+    else if (sel === 'new') newGame(); else if (sel === 'continue') { const s = Save.load(); if (s) applySave(s); else newGame(); }
     else if (sel === 'sound') Aud.setMuted(!Aud.muted);
   }
 }
@@ -466,9 +491,8 @@ function drawTitle(c) {
   // title
   textBig(c, 'DOMINION', 128, 14, '#f8d838', '#701818', 4); textBig(c, 'RESTORED', 128, 50, '#fcfcfc', '#2a2a80', 4);
   textC(c, 'FROM EDEN TO REVELATION', 128, 88, '#f8e8a0');
-  const has = Save.has(), labels = has ? ['CONTINUE', 'NEW GAME', 'SOUND: ' + (Aud.muted ? 'OFF' : 'ON')] : ['NEW GAME', 'SOUND: ' + (Aud.muted ? 'OFF' : 'ON')];
-  labels.forEach((l, i) => { const y = 160 + i * 14; R(c, 'rgba(0,0,0,.55)', 76, y - 2, 104, 12); textC(c, (G.menu === i && Math.floor(G.t * 3) % 2 === 0 ? '> ' : G.menu === i ? '> ' : '  ') + l, 128, y, G.menu === i ? '#f8d838' : '#c8c8d8'); });
-  textC(c, 'TAP OR PRESS A', 128, 206, '#a0a0c0'); text(c, 'V1.0', 226, 214, '#707090');
+  titleOptions().forEach(([, l], i) => { const y = MENU_Y + i * MENU_DY; R(c, 'rgba(0,0,0,.55)', 60, y - 2, 136, 12); textC(c, (G.menu === i && Math.floor(G.t * 3) % 2 === 0 ? '> ' : G.menu === i ? '> ' : '  ') + l, 128, y, G.menu === i ? '#f8d838' : '#c8c8d8'); });
+  textC(c, 'TAP OR PRESS A', 128, 208, '#a0a0c0'); text(c, 'V1.0', 226, 214, '#707090');
 }
 function drawPause(c) {
   c.globalAlpha = .88; R(c, '#000', 0, 0, W, H); c.globalAlpha = 1;
@@ -567,8 +591,8 @@ function boot() {
   cv.addEventListener('pointerdown', e => {
     Aud.init(); Aud.resume();
     const m = G.mode; if (m === 'title') {
-      const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * H, has = Save.has(), n = has ? 3 : 2;
-      for (let i = 0; i < n; i++) { const yy = 160 + i * 14; if (y >= yy - 5 && y <= yy + 11) { G.menu = i; Input.press.a = true; return; } }
+      const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * H, n = titleOptions().length;
+      for (let i = 0; i < n; i++) { const yy = MENU_Y + i * MENU_DY; if (y >= yy - 5 && y <= yy + 11) { G.menu = i; Input.press.a = true; return; } }
       Input.press.a = true;
     } else if (m === 'dialog' || m === 'gameover' || m === 'ending') Input.press.a = true;
     else if (m === 'pause') { const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * H; for (let i = 0; i < 3; i++) { const yy = 164 + i * 12; if (y >= yy - 4 && y <= yy + 10) { G.menu = i; Input.press.a = true; return; } } }
