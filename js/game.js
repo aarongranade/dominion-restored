@@ -18,7 +18,7 @@ function freshState() {
 /* ---------- save / load ---------- */
 const GM = {
   save() {
-    if (G.mode === 'title' || G.testing) return; // boss-test runs never touch the real save
+    if (G.mode === 'title') return;
     const p = G.p, ow = G.loc.kind === 'over' ? { idx: G.loc.idx, x: G.p.x, y: G.p.y } : G.overPos;
     Save.write({
       v: 1, p: { hp: p.max, max: p.max, sword: p.sword, items: p.items, shield: p.shield, armor: p.armor, crown: p.crown, sel: p.sel },
@@ -205,7 +205,6 @@ function applySave(s) {
   loadOver(s.ow.idx, s.ow.x, s.ow.y);
 }
 function respawn() {
-  if (G.testing) { testBoss(G.testing - 1); return; }
   const p = G.p; p.hp = p.max; p.faith = p.maxFaith; p.inv = 1.5; p.confuse = 0; p.fall = 0; p.kbt = 0; p.dove = null;
   if (G.loc.kind === 'dun') {
     const d = G.loc.d, dn = parseDungeon(d), start = Object.values(dn.cells).find(c => c.start);
@@ -293,28 +292,12 @@ function update(dt) {
 function toTitle() { G = freshState(); G.mode = 'title'; G.menu = 0; Aud.music('title'); Input.clear(); }
 
 /* ---------- title / pause / ending ---------- */
-/* title menu entries; TEST jumps straight to a boss for playtesting (temporary, remove before release) */
+/* title menu entries */
 const MENU_Y = 150, MENU_DY = 13;
 function titleOptions() {
   const o = Save.has() ? [['continue', 'CONTINUE']] : [];
-  o.push(['new', 'NEW GAME'], ['test1', 'TEST: SERPENT BOSS'], ['sound', 'SOUND: ' + (Aud.muted ? 'OFF' : 'ON')]);
+  o.push(['new', 'NEW GAME'], ['sound', 'SOUND: ' + (Aud.muted ? 'OFF' : 'ON')]);
   return o;
-}
-/* drops a throwaway game straight into dungeon d's boss room, with the gear you'd have by then */
-function testBoss(d) {
-  G = freshState(); G.mode = 'play'; G.testing = d + 1;
-  const p = G.p; p.max = 6 + 2 * d; p.hp = p.max;
-  const give = ['flame', 'dove', 'bow', 'rod', 'shofar', 'sling', 'shield', 'spirit', 'armor'];
-  for (let i = 0; i <= d && i < give.length; i++) {
-    const it = give[i]; if (i < d) G.cleared[i] = true;
-    if (it === 'flame') p.sword = Math.max(p.sword, 1); else if (it === 'spirit') p.sword = 2; else if (it === 'shield') p.shield = true; else if (it === 'armor') p.armor = true; else p.items[it] = true;
-  }
-  p.sel = ACTIVE_ITEMS.find(i => p.items[i]) || null;
-  const ds = G.ds[d]; ds.item = true; ds.bossOpen = true; G.overPos = { idx: d * 2 + 1, x: 128, y: 60 };
-  enterDungeon(d); G.bannerQ = null;
-  const b = Object.values(parseDungeon(d).cells).find(c => c.boss);
-  G.loc.cell = b.key; G.room = makeRoom(buildDunRoom(G, d, b)); p.x = 128; p.y = 164; p.dir = 1; p.lastSafe = { x: 128, y: 164 };
-  populate(G.room);
 }
 function updateTitle(dt) {
   const opts = titleOptions().length;
@@ -323,8 +306,7 @@ function updateTitle(dt) {
   if (Input.consume('a') || Input.consume('start')) {
     Aud.init(); Aud.resume(); Aud.sfx('confirm');
     const sel = titleOptions()[G.menu][0];
-    if (sel === 'test1') testBoss(0);
-    else if (sel === 'new') newGame(); else if (sel === 'continue') { const s = Save.load(); if (s) applySave(s); else newGame(); }
+    if (sel === 'new') newGame(); else if (sel === 'continue') { const s = Save.load(); if (s) applySave(s); else newGame(); }
     else if (sel === 'sound') Aud.setMuted(!Aud.muted);
   }
 }
