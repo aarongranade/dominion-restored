@@ -82,8 +82,8 @@ class Serpent extends Boss {
     } else if (this.state === 'spit') {
       spd = 0; this.sub += dt; this.hint = null;
       const n = rage > .5 ? 5 : 3;
-      if (this.sub > .6 && !this.f1) { this.f1 = 1; fan(this.x, this.y, p[0], p[1], n, .28, 100, 'venom', 1); Aud.sfx('spit'); }
-      if (this.sub > 1.1 && !this.f2 && rage > .3) { this.f2 = 1; fan(this.x, this.y, p[0], p[1], n, .22, 120, 'venom', 1); Aud.sfx('spit'); }
+      if (this.sub > .6 && !this.f1) { this.f1 = 1; fan(this.x, this.y, p[0], p[1], n, .28, 50, 'venom', 1); Aud.sfx('spit'); }
+      if (this.sub > 1.1 && !this.f2 && rage > .3) { this.f2 = 1; fan(this.x, this.y, p[0], p[1], n, .22, 60, 'venom', 1); Aud.sfx('spit'); }
       if (this.sub > 1.6) { this.state = 'slither'; this.f1 = this.f2 = 0; }
       const a = Math.atan2(p[1] - this.y, p[0] - this.x); this.ang = a;
     } else if (this.state === 'lunge') {
