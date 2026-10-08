@@ -59,11 +59,13 @@ class Serpent extends Boss {
   seg(i) { const k = Math.min(this.trail.length - 1, i * 4); return this.trail[k]; }
   ai(dt) {
     const rage = 1 - this.ratio, p = ppos();
+    // half speed and no lunges until its life drops to 10%, then full speed with lunges
+    const frenzy = this.ratio <= 0.1;
     this.st -= dt;
-    let spd = 52 + rage * 38, turn = 2.3;
+    let spd = (52 + rage * 38) * (frenzy ? 1 : 0.5), turn = 2.3;
     if (this.state === 'slither') {
       if (dist(this.x, this.y, this.tx, this.ty) < 14 || this.st < -6) { this.tx = rnd(ARENA.x0 + 10, ARENA.x1 - 10); this.ty = rnd(ARENA.y0 + 10, ARENA.y1 - 10); this.st = 0; }
-      if (this.t % 4.4 < dt) { this.state = Math.random() < .5 ? 'spit' : 'lunge'; this.st = 0; this.sub = 0; }
+      if (this.t % 4.4 < dt) { this.state = frenzy && Math.random() < .5 ? 'lunge' : 'spit'; this.st = 0; this.sub = 0; }
     } else if (this.state === 'spit') {
       spd = 0; this.sub += dt; this.hint = null;
       const n = rage > .5 ? 5 : 3;
