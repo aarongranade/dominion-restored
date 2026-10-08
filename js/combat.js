@@ -234,6 +234,19 @@ function updateSwordHit() {
       if (rm.tiles[ty * 16 + tx] === T.BUSH) { rm.tiles[ty * 16 + tx] = T.FLOOR; fxBurst(tx * 16 + 8, ty * 16 + 8, ['#f83800', '#f8a038', '#f8f038', '#303030'], 14, 70, .6, 2); Aud.sfx('kill'); if (Math.random() < .5) dropAt(tx * 16 + 8, ty * 16 + 8, true); }
     }
   }
+  // Serpent's room: each corner statue gives up one heart when slashed (once per visit)
+  if (rm.kind === 'dun' && rm.d === 0 && rm.cell && rm.cell.boss) {
+    if (!rm.statueHearts) rm.statueHearts = {};
+    for (const [tx, ty] of [[1, 1], [14, 1], [1, 10], [14, 10]]) {
+      const k = tx + ',' + ty;
+      if (rm.statueHearts[k] || rm.tiles[ty * 16 + tx] !== T.STATUE) continue;
+      if (!overlap(box, { x: tx * 16 + 8, y: ty * 16 + 8, hw: 8, hh: 8 })) continue;
+      rm.statueHearts[k] = true;
+      const hx = tx * 16 + 8 + (tx < 8 ? 16 : -16), hy = ty * 16 + 8 + (ty < 6 ? 16 : -16);
+      rm.pickups.push({ x: hx, y: hy, type: 'heart', t: 0 });
+      fxBurst(tx * 16 + 8, ty * 16 + 8, ['#fff', '#f8d838', '#a8a8a8'], 10, 60, .5, 2); Aud.sfx('clink');
+    }
+  }
 }
 
 function useItem() {
