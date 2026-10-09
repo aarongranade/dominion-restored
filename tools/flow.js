@@ -32,7 +32,7 @@ const { chromium } = require(process.env.PW || 'playwright');
         if (G.mode === 'bossintro') { for (let i = 0; i < 300 && G0().mode === 'bossintro'; i++) await sleep(20); }
         if (rm.cell.boss) {
           out.push('boss room: ' + rm.boss?.id);
-          const bo = G0().room.boss; if (bo) { for (let i = 0; i < 300 && !bo.dead; i++) { if (bo.id === 'colossus') bo.onShofar({ x: bo.x, y: bo.y + 20 }); if (bo.id === 'death' && bo.lit <= 0) bo.onLight(); const ps = bo.parts(), part = ps.find(q => q.vuln !== false) || ps[0]; if (part) { try { bo.hit(part, 99, 'stone'); } catch (e) { out.push('hit err ' + e.message); } } await sleep(30); } out.push('boss dead=' + bo.dead + ' mode=' + G0().mode); }
+          const bo = G0().room.boss; if (bo) { for (let i = 0; i < 300 && !bo.dead; i++) { if (bo.id === 'colossus') bo.onShofar({ x: bo.x, y: bo.y + 20 }); if (bo.id === 'death' && bo.lit <= 0) bo.onLight(); if (bo.id === 'image' && !bo.exposed()) { bo.state = 'up'; bo.e = 1; } const ps = bo.parts(), part = ps.find(q => q.vuln !== false) || ps[0]; if (part) { try { bo.hit(part, 99, 'stone'); } catch (e) { out.push('hit err ' + e.message); } } await sleep(30); } out.push('boss dead=' + bo.dead + ' mode=' + G0().mode); }
           return;
         }
         await killAll(); await sleep(150);

@@ -52,7 +52,7 @@ The overworld is a 10×10 grid of 100 screens. Each of the ten biomes, in biblic
 | 4 | Pharaoh's Pyramid | Exodus 7–14 | **Pharaoh** — plagues of frogs, locusts, darkness, serpents | Rod of Moses |
 | 5 | Walls of Jericho | Joshua 6 | **Colossus of Jericho** — stone skin only the Shofar can crack | Shofar |
 | 6 | Valley of Elah | 1 Samuel 17 | **Goliath of Gath** — only a stone to the forehead hurts | Sling of David |
-| 7 | Furnace of Babylon | Daniel 2–3 | **The Great Image** — head of gold to feet of clay, five phases | Shield of Faith (reflects projectiles) |
+| 7 | Furnace of Babylon | Daniel 2–3 | **The Great Image** — head of gold to feet of clay; it slides about collapsed, rises every ten seconds or so, and the top section can only be struck while it stands (the first blow stuns it) | Shield of Faith (reflects projectiles) |
 | 8 | **The Temptation** | Matthew 4 | **The Tempter** — three trials: Stones, the Pinnacle, the Kingdoms | Sword of the Spirit |
 | 9 | The Empty Tomb | Matthew 28 | **Death** — shrouded in darkness until you seize the light | Armor of Light |
 | 10 | The Abyss | Revelation 12 | **The Dragon** — strips away your weapons; stun each head with the Word of Our Testimony and strike it with the Blood of the Lamb (three strikes per head), then ride a white horse against the beast itself (Revelation 12:11, 19:14) | Word of Our Testimony, Blood of the Lamb (Crown of Life after the Dragon) |
