@@ -27,6 +27,10 @@ To host it for your phone, turn on **GitHub Pages** (Settings → Pages → *Dep
 | Pause / menu | **START** | Enter / P / Esc |
 | Mute | | M |
 
+### 3D view
+
+The game can be shown as a 3D diorama: rooms become blocks (walls stand up, water and pits sink), trees, rocks, bushes and statues grow into rounded voxel shapes built from their own pixel art, the sun casts shadows, characters and bosses stand on cards built from their pixel sprites, and dark rooms are lit by real lights. Switch between **VIEW: 3D** and **VIEW: 2D** on the title screen or the pause menu (or add `?3d` / `?2d` to the URL). The game rules are identical in both views; only the drawing changes. It uses [Three.js](https://threejs.org) r149 (MIT, vendored in `js/vendor/`), loaded only when 3D is on.
+
 Portrait phones show the game on top and controls below; landscape phones get a full-screen game with floating controls. Progress is saved automatically (screen changes, items, bosses).
 
 ## The world
@@ -71,6 +75,7 @@ js/data.js                 themes, enemies, dungeon layouts, items, all text
 js/world.js                overworld + dungeon generation, door/key logic
 js/combat.js               player, enemy AI, projectiles, items, effects
 js/bosses.js               the ten bosses
+js/render3d.js             optional 3D view of the play area (Three.js)
 js/game.js                 state machine, rooms, HUD, menus, main loop
 tools/                     dev scripts (Node)
 ```
