@@ -30,6 +30,7 @@ class Boss {
     G.room.dark = false; G.room.wind = null;
   }
   update(dt) {
+    if (this.dead) return; // a defeated boss stops attacking for good
     this.t += dt; if (this.flash > 0) this.flash -= dt;
     if (this.dying > 0) {
       this.dying -= dt;
@@ -125,7 +126,7 @@ class Serpent extends Boss {
 class Leviathan extends Boss {
   constructor() { super('leviathan', 'LEVIATHAN', 28); this.state = 'dive'; this.st = 0; this.hx = 128; this.hy = 100; this.waveDone = false; }
   // a pool in the middle of the room (tiles 4-11 x 4-7) ringed by a 3-tile-wide walkway; Leviathan never leaves the water
-  setup(room) { for (let y = 4; y <= 7; y++) for (let x = 4; x <= 11; x++) room.tiles[y * 16 + x] = T.WATER; }
+  setup(room) { for (let y = 4; y <= 7; y++) for (let x = 4; x <= 11; x++) room.tiles[y * 16 + x] = T.WATER; room.dropSpot = { x: 128, y: 40 }; } // prize lands on the walkway above the pool
   headPos() { const k = this.state === 'up' ? 1 : this.state === 'rise' ? Math.min(1, this.st / .5) : this.state === 'sink' ? Math.max(0, 1 - this.st / .5) : 0; return [this.hx + Math.sin(this.t * 2) * 5 * k, this.hy - 14 * k]; }
   rawParts() {
     if (this.state !== 'up' && this.state !== 'rise' && this.state !== 'sink') return [];
@@ -136,8 +137,9 @@ class Leviathan extends Boss {
   ai(dt) {
     const p = ppos(), rage = 1 - this.ratio; this.st += dt;
     if (this.state === 'dive') {
-      // swims under the surface toward the hero, but only within the pool, so it surfaces at the near edge
-      const a = Math.atan2(p[1] - this.hy, p[0] - this.hx), sp = 55 + rage * 40; this.hx += Math.cos(a) * sp * dt; this.hy += Math.sin(a) * sp * dt;
+      // swims at random under the surface; the hero has to watch the ripples to find where it comes up
+      if (this.tx === undefined || dist(this.hx, this.hy, this.tx, this.ty) < 6) { this.tx = rnd(76, 180); this.ty = rnd(80, 124); }
+      const a = Math.atan2(this.ty - this.hy, this.tx - this.hx), sp = 50 + rage * 30; this.hx += Math.cos(a) * sp * dt; this.hy += Math.sin(a) * sp * dt;
       this.hx = clamp(this.hx, 76, 180); this.hy = clamp(this.hy, 80, 124);
       if (this.st > 2.2 - rage * .7) { this.state = 'rise'; this.st = 0; Aud.sfx('boom'); }
     } else if (this.state === 'rise') {
@@ -149,6 +151,7 @@ class Leviathan extends Boss {
     } else if (this.state === 'sink') {
       if (this.st > .5) { this.state = 'dive'; this.st = 0; }
     }
+    this.x = this.hx; this.y = this.hy - 8; // keeps the defeat explosion on Leviathan
     if (this.state === 'dive' && Math.random() < .3) fxBurst(this.hx + rnd(-8, 8), this.hy + rnd(-4, 4), ['#58a8f8', '#fff'], 1, 20, .4, 1);
   }
   draw(c) {
