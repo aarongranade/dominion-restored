@@ -22,7 +22,7 @@ const GM = {
     const p = G.p, ow = G.loc.kind === 'over' ? { idx: G.loc.idx, x: G.p.x, y: G.p.y } : G.overPos;
     Save.write({
       v: 2, p: { hp: p.max, max: p.max, sword: (p.stash || p).sword, items: (p.stash || p).items, shield: p.shield, armor: (p.stash || p).armor, crown: p.crown, sel: (p.stash || p).sel, blood: p.blood },
-      cleared: G.cleared, broken: G.broken, seen: G.seen, ds: G.ds.map(d => ({ unlocked: d.unlocked, cleared: d.cleared, taken: d.taken, got: d.got || {}, keys: d.keys, bossOpen: d.bossOpen, item: d.item, boss: d.boss, visited: d.visited })),
+      cleared: G.cleared, broken: G.broken, seen: G.seen, ds: G.ds.map(d => ({ unlocked: d.unlocked, cleared: d.cleared, taken: d.taken, got: d.got || {}, heart: !!d.heart, keys: d.keys, bossOpen: d.bossOpen, item: d.item, boss: d.boss, visited: d.visited })),
       ow: ow || { idx: 0, x: 128, y: 120 }
     });
   },
@@ -54,7 +54,7 @@ const GM = {
     startFade(() => { const o = G.overPos || { idx: WORLD.dungeon[d], x: 128, y: 60 }; loadOver(o.idx, o.x, o.y); G.save(); });
   },
   onContainer(k) {
-    const p = G.p; p.max += 2; p.hp = p.max; p.faith = p.maxFaith; Aud.sfx('fanfare'); fxBurst(p.x, p.y, ['#f83838', '#fff'], 20, 90, .8, 2);
+    const p = G.p; G.ds[G.loc.d].heart = true; p.max += 2; p.hp = p.max; p.faith = p.maxFaith; Aud.sfx('fanfare'); fxBurst(p.x, p.y, ['#f83838', '#fff'], 20, 90, .8, 2);
     say(['YOU RECEIVED A HEART CONTAINER! YOUR LIFE GROWS STRONGER.', CLEAR_TEXT[G.loc.d]], () => { const ds = G.room.dropSpot || { x: 128, y: 96 }; G.room.beam = { x: ds.x, y: ds.y, t: 0 }; Aud.sfx('seal'); });
   },
   onBossDead(boss) {
@@ -154,7 +154,14 @@ function populate(room, fromSlide) {
     if (!ds.boss) {
       shutDoors(room); room.shut = true; room.bossWait = true;
       G.bossIntro = { t: 0, id: def.boss }; setMode('bossintro'); Aud.music(''); Aud.sfx('bossroar');
-    } else { openDoors(room, G); }
+    } else {
+      // coming back after the boss: same arena, and anything left behind is still waiting
+      openDoors(room, G);
+      const b = makeBoss(def.boss); if (b.arena) b.arena(room);
+      const spot = room.dropSpot || { x: 128, y: 96 };
+      if (!ds.heart) room.pickups.push({ x: spot.x, y: spot.y, type: 'container', t: 0 });
+      else if (!G.cleared[d]) room.beam = { x: spot.x, y: spot.y, t: 0 }; // the light out still breaks the seal
+    }
     return;
   }
   if (ds.cleared[cell.key]) {
@@ -255,6 +262,7 @@ function applySave(s) {
   const p = G.p; Object.assign(p, { hp: s.p.hp, max: s.p.max, sword: s.p.sword, items: s.p.items, shield: s.p.shield, armor: s.p.armor, crown: s.p.crown, sel: s.p.sel, blood: !!s.p.blood });
   G.cleared = s.cleared; G.broken = s.broken || {}; G.seen = s.seen || {};
   G.ds = s.ds.map(d => Object.assign({ unlocked: {}, cleared: {}, taken: {}, keys: 0, bossOpen: false, item: false, boss: false, visited: {} }, d));
+  G.ds.forEach((d, i) => { if (d.heart === undefined) d.heart = !!G.cleared[i]; }); // older saves: a finished dungeon's heart was already taken
   G.overPos = null;
   if (!s.v || s.v < 2) {
     // saves from the smaller world: keep items and seals, restart at the next region's first screen,
