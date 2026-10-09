@@ -7,6 +7,7 @@ for (const f of ['core', 'gfx', 'data', 'world'])
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f + '.js'), 'utf8') + '\n;Object.assign(globalThis,{' + (f === 'core' ? 'mulberry32,DIRV' : f === 'gfx' ? 'T' : f === 'data' ? 'DUNGEONS' : 'validateDungeon,parseDungeon') + '})', ctx);
 // [width, height, rooms, keys(=locks incl. treasure room), special rooms]
 const SPEC = [[5, 5, 14, 2, ''], [5, 5, 16, 2, ''], [6, 6, 24, 3, ''], [7, 6, 28, 3, ''], [7, 7, 32, 4, ''], [7, 7, 30, 4, ''], [6, 7, 28, 3, 'uuu'], [6, 5, 20, 3, 'tpg'], [6, 6, 22, 3, ''], [8, 8, 42, 5, 'uuuu']];
+const TREASURES = { 9: 2 }; // the Abyss hides the Word of Our Testimony and the Blood of the Lamb
 const D4 = [[0, 1], [0, -1], [-1, 0], [1, 0]];
 function gen(d, seed) {
   const [w, h, n, nk, special] = SPEC[d], r = ctx.mulberry32(seed), g = Array.from({ length: h }, () => Array(w).fill('.'));
@@ -42,8 +43,9 @@ function gen(d, seed) {
   const ends = rooms.filter(([cx, cy]) => deg(cx, cy) === 1 && key(cx, cy) !== below).sort((a, b) => dist[key(...b)] - dist[key(...a)]);
   if (!ends.length) return null;
   const [jx, jy] = ends[0]; g[jy][jx] = 'J';
+  for (let j = 1; j < (TREASURES[d] || 1); j++) { const e = ends.find(([cx, cy]) => g[cy][cx] === 'C'); if (!e) return null; g[e[1]][e[0]] = 'J'; }
   const pickFree = (filter) => { const c = rooms.filter(([cx, cy]) => g[cy][cx] === 'C' && key(cx, cy) !== below && filter(cx, cy)); return c.length ? c[Math.floor(r() * c.length)] : null; };
-  for (let i = 0; i < nk - 1; i++) { const c = pickFree((cx, cy) => deg(cx, cy) <= 2 && dist[key(cx, cy)] > 1); if (!c) return null; g[c[1]][c[0]] = 'L'; }
+  for (let i = 0; i < nk - (TREASURES[d] || 1); i++) { const c = pickFree((cx, cy) => deg(cx, cy) <= 2 && dist[key(cx, cy)] > 1); if (!c) return null; g[c[1]][c[0]] = 'L'; }
   for (let i = 0; i < nk; i++) { const c = pickFree(() => true); if (!c) return null; g[c[1]][c[0]] = 'K'; }
   for (const s of special) { const c = pickFree(() => true); if (!c) return null; g[c[1]][c[0]] = s; }
   // every key must be reachable without opening any lock

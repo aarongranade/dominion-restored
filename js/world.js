@@ -157,6 +157,7 @@ const _dunCache = {};
 function parseDungeon(d) {
   if (_dunCache[d]) return _dunCache[d];
   const def = DUNGEONS[d], rows = def.layout, h = rows.length, w = rows[0].length, cells = {};
+  let items = 0; // treasure rooms are numbered in reading order: item 0, item 1...
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const ch = rows[y][x]; if (ch === '.') continue;
     cells[x + ',' + y] = {
@@ -164,12 +165,13 @@ function parseDungeon(d) {
       locked: ch === 'L' || ch === 'J', mod: ch === 't' ? 'stones' : ch === 'p' ? 'pinnacle' : ch === 'g' ? 'kingdoms' : ch === 'u' ? 'fire' : null,
       combat: 'CKLtpgu'.includes(ch)
     };
+    if (ch === 'I' || ch === 'J') cells[x + ',' + y].itemIdx = items++;
   }
   for (const c of Object.values(cells)) {
     c.exits = {};
     DIRV.forEach(([dx, dy], i) => { const n = cells[(c.x + dx) + ',' + (c.y + dy)]; if (n) c.exits[i] = n; });
   }
-  return _dunCache[d] = { d, def, w, h, cells };
+  return _dunCache[d] = { d, def, w, h, cells, items };
 }
 
 const PATTERNS = [
@@ -276,7 +278,7 @@ function validateDungeon(d) {
   const keys = cells.filter(c => c.kroom).length, locks = cells.filter(c => c.locked).length;
   if (keys < locks) errs.push('keys ' + keys + ' < locks ' + locks);
   // greedy simulation
-  const opened = new Set(), got = new Set(); let keysHeld = 0, bossKey = false, progress = true;
+  const opened = new Set(), got = new Set(), treasures = new Set(); let keysHeld = 0, bossKey = false, progress = true;
   const seen = new Set([start.key]);
   while (progress) {
     progress = false;
@@ -289,7 +291,7 @@ function validateDungeon(d) {
         else if (n.locked && !opened.has(n.key)) { if (keysHeld <= 0) continue; keysHeld--; opened.add(n.key); }
         seen.add(n.key); progress = true;
         if (n.kroom && !got.has(n.key)) { got.add(n.key); keysHeld++; }
-        if (n.item) bossKey = true;
+        if (n.item) { treasures.add(n.key); if (treasures.size === dn.items) bossKey = true; } // boss door needs every treasure
       }
     }
   }

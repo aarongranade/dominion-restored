@@ -113,7 +113,7 @@ function updateProjs(dt) {
           if (p.inv <= 0) { hurtPlayer(o.dmg, o.x, o.y, o); if (!o.pierce) dead = true; }
         }
       } else {
-        for (const e of rm.enemies) if (e.hp > 0 && !e.ghost && overlap(o, hb(e))) { damageEnemy(e, o.dmg, o.x, o.y, o.kind === 'arrow' ? 'arrow' : 'proj'); if (!o.pierce) { dead = true; break; } }
+        for (const e of rm.enemies) if (e.hp > 0 && !e.ghost && overlap(o, hb(e))) { if (o.sprayId && e.lastSpray === o.sprayId) continue; e.lastSpray = o.sprayId; damageEnemy(e, o.dmg, o.x, o.y, o.kind === 'arrow' ? 'arrow' : 'proj'); if (o.kind === 'word') e.stun = Math.max(e.stun, 2); if (!o.pierce) { dead = true; break; } }
         if (!dead && rm.boss && !rm.boss.dead) {
           for (const part of rm.boss.parts()) if (overlap(o, part)) { rm.boss.hit(part, o.dmg, o.refl ? 'reflect' : o.kind, o); if (!o.pierce) dead = true; break; }
         }
@@ -140,6 +140,8 @@ function drawProj(c, o) {
     case 'scythe': { const a = o.t * 14; c.fillStyle = '#c8d0e0'; for (let i = 0; i < 6; i++) { c.fillRect(Math.round(x + Math.cos(a + i * .35) * 6), Math.round(y + Math.sin(a + i * .35) * 6), 2, 2); } R(c, '#fcfcfc', x, y, 1, 1); break; }
     case 'soul': disc(c, '#a8f8ff', x, y, 3); R(c, '#fcfcfc', x - 1, y - 1, 2, 2); R(c, '#58b8e8', x - 1, y + 3, 2, 3); break;
     case 'star': disc(c, '#f8d838', x, y, 3); R(c, '#fcfcfc', x - 1, y - 1, 2, 2); R(c, '#f8a038', x - 1, y - 6, 2, 3); break;
+    case 'blood': { const a = Math.max(0, o.life / .3); c.globalAlpha = .5 + .5 * a; disc(c, '#a01028', x, y, 3); disc(c, '#e83048', x, y, 2); R(c, '#f8d878', x, y - 1, 1, 1); c.globalAlpha = 1; break; }
+    case 'word': R(c, '#fff8d0', x - 4, y - 4, 9, 9); R(c, '#fcfcfc', x - 3, y - 3, 7, 7); R(c, '#c8a838', x - 2, y - 2, 5, 1); R(c, '#c8a838', x - 2, y, 5, 1); R(c, '#c8a838', x - 2, y + 2, 3, 1); if (fl) R(c, '#f8d838', x - 6, y, 1, 1); break;
     case 'bolt': R(c, '#f8f038', x - 1, y - 4, 3, 8); R(c, '#fcfcfc', x, y - 4, 1, 8); break;
     case 'bar': R(c, '#a8a8b8', x - 5, y - 2, 10, 5); R(c, '#e0e0f0', x - 5, y - 2, 10, 1); R(c, '#606078', x - 5, y + 2, 10, 1); break;
     case 'mud': disc(c, '#704818', x, y, 3); R(c, '#a07840', x - 1, y - 1, 2, 1); break;
@@ -211,8 +213,15 @@ function swordBox() {
   const cx = p.x + f[0] * (7 + r / 2), cy = p.y + 3 + f[1] * (7 + r / 2);
   return f[0] ? { x: cx, y: cy, hw: r / 2, hh: 7 } : { x: cx, y: cy, hw: 7, hh: r / 2 };
 }
+let sprayCount = 0;
 function trySword() {
   const p = G.p; if (p.cool > 0 || p.atk > 0 || p.fall > 0) return;
+  if (p.lamb) { // the Blood of the Lamb: a short spray of crimson-gold light in front of the hero
+    p.atk = .2; p.cool = .35; p.hitSet = null; Aud.sfx('magic');
+    const f = DIRV[p.dir], base = Math.atan2(f[1], f[0]), id = ++sprayCount;
+    for (let i = 0; i < 5; i++) { const a = base + (i - 2) * .16; addProj({ x: p.x + f[0] * 8, y: p.y + 3 + f[1] * 8, vx: Math.cos(a) * 150, vy: Math.sin(a) * 150, kind: 'blood', hostile: false, dmg: 3, life: .3, hw: 4, pierce: 1, pass: 1, sprayId: id }); }
+    return;
+  }
   p.atk = .2; p.cool = .3; p.hitSet = new Set(); Aud.sfx('sword');
   if (p.sword >= 2) {
     const f = DIRV[p.dir];
@@ -255,6 +264,7 @@ function useItem() {
   if (p.faith < cost) { Aud.sfx('clink'); fxText(p.x, p.y - 14, 'NO FAITH', '#58a8f8'); return; }
   const f = DIRV[p.dir], rm = G.room;
   switch (id) {
+    case 'testimony': p.faith -= cost; Aud.sfx('magic'); addProj({ x: p.x + f[0] * 8, y: p.y + 3 + f[1] * 8, vx: f[0] * 190, vy: f[1] * 190, kind: 'word', hostile: false, dmg: 1, life: 1.1, hw: 4 }); p.atk = .15; break;
     case 'dove': if (p.dove) return; p.dove = { x: p.x, y: p.y, dir: p.dir, t: 0, back: false }; Aud.sfx('dove'); break;
     case 'bow': p.faith -= cost; Aud.sfx('arrow'); addProj({ x: p.x + f[0] * 8, y: p.y + 3 + f[1] * 8, vx: f[0] * 210, vy: f[1] * 210, kind: 'arrow', hostile: false, dmg: 2, life: 1.5, hw: f[0] ? 5 : 2, hh: f[0] ? 2 : 5 }); p.atk = .15; break;
     case 'sling': p.faith -= cost; Aud.sfx('sling'); addProj({ x: p.x + f[0] * 8, y: p.y + 3 + f[1] * 8, vx: f[0] * 180, vy: f[1] * 180, kind: 'stone', hostile: false, dmg: 3, life: 1.2, hw: 3 }); p.atk = .15; break;
@@ -332,7 +342,7 @@ function updatePlayer(dt) {
   }
   if (p.kbt > 0) { p.kbt -= dt; moveEnt(p, p.kbx * dt, p.kby * dt); }
   else if (!busy && (mx || my)) {
-    const sp = 68 * (p.atk > 0 ? .45 : 1) * (tileAtPx(p.x, p.y + 4) === T.WATER ? .6 : 1), n = mx && my ? .7071 : 1;
+    const sp = 68 * (p.horse ? 1.33 : 1) * (p.atk > 0 ? .45 : 1) * (tileAtPx(p.x, p.y + 4) === T.WATER ? .6 : 1), n = mx && my ? .7071 : 1;
     moveEnt(p, mx * sp * n * dt, my * sp * n * dt);
     if (p.atk <= 0 && p.want !== undefined) p.dir = p.want;
     p.moving = true; p.anim += dt;
@@ -383,14 +393,28 @@ function drawPlayer(c) {
   let img = playerSprite(p.dir, fr, p.armor ? { o: '#181018', a: '#e8f0ff', b: '#a05820', c: '#f8b878' } : null);
   if (p.inv > 0 && Math.floor(p.inv * 20) % 2 === 0 && p.kbt <= 0) return drawSwordFx(c);
   if (p.dir === 1) drawSwordFx(c);
+  if (p.horse) { drawHorse(c, p); c.drawImage(img, Math.round(p.x - 8), Math.round(p.y - 14)); } else
   c.drawImage(img, Math.round(p.x - 8), Math.round(p.y - 8));
   if (p.shield) { const f = DIRV[p.dir]; if (p.dir === 0 || p.dir === 2 || p.dir === 3) { const sx = p.x + (p.dir === 2 ? -9 : p.dir === 3 ? 4 : -3), sy = p.y + 1; R(c, '#58a8f8', Math.round(sx), Math.round(sy), 5, 6); R(c, '#fcfcfc', Math.round(sx), Math.round(sy), 5, 1); R(c, '#f8d838', Math.round(sx) + 2, Math.round(sy) + 1, 1, 4); } }
   if (p.dir !== 1) drawSwordFx(c);
   if (p.confuse > 0) { for (let i = 0; i < 3; i++) { const a = G.t * 6 + i * 2.1; R(c, '#d898ff', Math.round(p.x + Math.cos(a) * 7), Math.round(p.y - 12 + Math.sin(a) * 2), 2, 2); } }
   if (p.dove) { const d = p.dove; c.drawImage(icon('dove'), Math.round(d.x - 8), Math.round(d.y - 8 + Math.sin(d.t * 30) * 1.5)); }
 }
+function drawHorse(c, p) { // white horse (Revelation 19:14), drawn under the rider
+  const x = Math.round(p.x), y = Math.round(p.y), side = p.dir === 2 ? -1 : 1, step = p.moving ? Math.floor(p.anim * 10) % 2 : 0, o = '#606878', w = '#fcfcfc', s = '#d8dce8';
+  if (p.dir === 2 || p.dir === 3) {
+    R(c, o, x - 10, y - 2, 20, 9); R(c, w, x - 9, y - 1, 18, 7); R(c, s, x - 9, y + 4, 18, 2);
+    R(c, o, x + side * 9 - 2, y - 7, 5, 8); R(c, w, x + side * 9 - 1, y - 6, 3, 7); R(c, w, x + side * 11 - (side < 0 ? 3 : 0), y - 6, 4, 3); R(c, '#000', x + side * 12, y - 5, 1, 1);
+    R(c, '#f8d838', x - side * 10 - (side > 0 ? 2 : 0), y - 1, 3, 5); // tail
+    for (const lx of [-7, -4, 4, 7]) R(c, s, x + lx, y + 6, 2, 4 + ((lx > 0) === !!step ? 1 : 0));
+  } else {
+    R(c, o, x - 6, y - 4, 12, 13); R(c, w, x - 5, y - 3, 10, 11); R(c, s, x - 5, y + 6, 10, 2);
+    if (p.dir === 0) { R(c, w, x - 2, y + 6, 4, 5); R(c, '#000', x - 2, y + 7, 1, 1); R(c, '#000', x + 1, y + 7, 1, 1); } else R(c, '#f8d838', x - 1, y + 7, 2, 4);
+    for (const lx of [-5, 3]) R(c, s, x + lx, y + 8, 2, 3 + (step ? 1 : 0));
+  }
+}
 function drawSwordFx(c) {
-  const p = G.p; if (p.atk <= 0) return;
+  const p = G.p; if (p.atk <= 0 || p.lamb) return;
   const s = swordStats(), t = 1 - p.atk / .2, ext = 3 + Math.sin(Math.min(1, t) * Math.PI) * s.reach, f = DIRV[p.dir];
   const col = p.sword === 0 ? ['#a05820', '#c88040'] : p.sword === 1 ? ['#ff8030', '#ffe060'] : ['#a8f0ff', '#fcfcfc'];
   const bx = p.x + f[0] * 6, by = p.y + 3 + f[1] * 6, e = Math.round(ext);
