@@ -55,12 +55,12 @@ const GM = {
   },
   onContainer(k) {
     const p = G.p; p.max += 2; p.hp = p.max; p.faith = p.maxFaith; Aud.sfx('fanfare'); fxBurst(p.x, p.y, ['#f83838', '#fff'], 20, 90, .8, 2);
-    say(['YOU RECEIVED A HEART CONTAINER! YOUR LIFE GROWS STRONGER.', CLEAR_TEXT[G.loc.d]], () => { G.room.beam = { x: 128, y: 96, t: 0 }; Aud.sfx('seal'); });
+    say(['YOU RECEIVED A HEART CONTAINER! YOUR LIFE GROWS STRONGER.', CLEAR_TEXT[G.loc.d]], () => { const ds = G.room.dropSpot || { x: 128, y: 96 }; G.room.beam = { x: ds.x, y: ds.y, t: 0 }; Aud.sfx('seal'); });
   },
   onBossDead(boss) {
     const rm = G.room, ds = G.ds[G.loc.d];
     ds.boss = true; rm.shut = false; openDoors(rm, G); Aud.music(''); Aud.sfx('win');
-    rm.pickups.push({ x: 128, y: 96, type: 'container', t: 0 });
+    const spot = rm.dropSpot || { x: 128, y: 96 }; rm.pickups.push({ x: spot.x, y: spot.y, type: 'container', t: 0 });
     for (const e of rm.enemies) e.hp = 0; rm.enemies.length = 0;
     Aud.music('d' + (G.loc.d + 1));
     G.save();

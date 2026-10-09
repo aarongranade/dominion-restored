@@ -298,12 +298,14 @@ function updateDove(dt) {
     if (d.t > .45 || projBlocked(d.x, d.y)) d.back = true;
   } else {
     const a = Math.atan2(p.y - d.y, p.x - d.x); d.x += Math.cos(a) * 150 * dt; d.y += Math.sin(a) * 150 * dt;
-    if (dist(d.x, d.y, p.x, p.y) < 7) { p.dove = null; return; }
+    if (dist(d.x, d.y, p.x, p.y) < 7) { if (d.carry) { d.carry.x = p.x; d.carry.y = p.y; d.carry.carried = false; } p.dove = null; return; }
   }
   const box = { x: d.x, y: d.y, hw: 6, hh: 6 };
   for (const e of rm.enemies) if (e.hp > 0 && !e.ghost && overlap(box, hb(e))) { if (!d.hit) d.hit = new Set(); if (!d.hit.has(e)) { d.hit.add(e); damageEnemy(e, 1, d.x, d.y, 'dove'); e.stun = Math.max(e.stun, 1.6); } }
   if (rm.boss && !rm.boss.dead) for (const part of rm.boss.parts()) if (overlap(box, part)) { if (!d.hit) d.hit = new Set(); const k = part.id || 'b'; if (!d.hit.has(k)) { d.hit.add(k); rm.boss.hit(part, 1, 'dove'); } d.back = true; }
-  for (let i = rm.pickups.length - 1; i >= 0; i--) { const k = rm.pickups[i]; if (dist(k.x, k.y, d.x, d.y) < 9 && k.type !== 'container') { collectPickup(k); rm.pickups.splice(i, 1); } }
+  // the dove grabs the first item it touches (even out over water) and carries it back to the hero
+  if (!d.carry) for (const k of rm.pickups) if (!k.carried && dist(k.x, k.y, d.x, d.y) < 10) { d.carry = k; k.carried = true; d.back = true; Aud.sfx('pick'); break; }
+  if (d.carry) { d.carry.x = d.x; d.carry.y = d.y + 6; }
   for (const o of rm.projs) if (o.hostile && dist(o.x, o.y, d.x, d.y) < 7 && REFLECTABLE.has(o.kind)) o.life = 0;
 }
 
@@ -444,7 +446,7 @@ function updatePickups(dt) {
   const rm = G.room, p = G.p;
   for (let i = rm.pickups.length - 1; i >= 0; i--) {
     const k = rm.pickups[i]; k.t += dt;
-    if (k.ttl !== undefined && k.t > k.ttl) { rm.pickups.splice(i, 1); continue; }
+    if (k.ttl !== undefined && k.t > k.ttl && !k.carried) { rm.pickups.splice(i, 1); continue; }
     if (dist(k.x, k.y, p.x, p.y + 3) < 11 && p.fall <= 0) { collectPickup(k); rm.pickups.splice(i, 1); }
   }
 }
