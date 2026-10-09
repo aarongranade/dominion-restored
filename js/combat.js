@@ -381,10 +381,78 @@ function updatePlayer(dt) {
     else if (p.y < 4 && rm.exits[1]) G.slide(1); else if (p.y > 188 && rm.exits[0]) G.slide(0);
   }
 }
-function tryInteract() { // pressing A facing a sign
-  const p = G.p, f = DIRV[p.dir], x = p.x + f[0] * 11, y = p.y + 4 + f[1] * 11;
+function tryInteract() { // pressing A facing a sign, or someone to talk to
+  const p = G.p, f = DIRV[p.dir], x = p.x + f[0] * 11, y = p.y + 4 + f[1] * 11, rm = G.room;
+  if (rm.npcs) {
+    const n = rm.npcs.find(n => dist(x, y, n.x, n.y + 4) < 14);
+    if (n) { say([npcLine(n)]); Aud.sfx('select'); return true; }
+    if (rm.throne && p.dir === 1 && p.y < 72 && Math.abs(p.x - rm.throne.x) < 34) { say(p.crown ? HEAVEN_TEXT.throne.concat(HEAVEN_TEXT.crown) : HEAVEN_TEXT.throne); return true; }
+  }
   if (tileAtPx(x, y) === T.SIGN) { G.onBump(Math.floor(x / TS), Math.floor(y / TS), T.SIGN); return true; }
   return false;
+}
+
+/* ---------------- the throne room: who is there, and what they say ---------------- */
+const NPC_NAMES = { angel: 'AN ANGEL', elder: 'AN ELDER', lion: 'A LIVING CREATURE', ox: 'A LIVING CREATURE', man: 'A LIVING CREATURE', eagle: 'A LIVING CREATURE', lamb: 'THE LAMB' };
+function npcLine(n) {
+  const list = n.lines || (n.kind === 'angel' ? HEAVEN_LINES.angel : n.kind === 'elder' ? HEAVEN_LINES.elder : HEAVEN_LINES.living);
+  const line = list[n.i % list.length]; n.i++;
+  return '{' + NPC_NAMES[n.kind] + ':} ' + line;
+}
+function drawNpc(c, n) {
+  const x = Math.round(n.x), y = Math.round(n.y + Math.sin(n.t * 2) * (n.kind === 'angel' ? 1.5 : .5)), w = Math.floor(n.t * 3) % 2;
+  c.globalAlpha = .3; R(c, '#000', Math.round(n.x) - 6, Math.round(n.y) + 7, 12, 2); c.globalAlpha = 1;
+  const wings = (col, eyes) => { // a pair of wings, opening and closing
+    R(c, col, x - 11, y - 7 + w, 5, 10); R(c, col, x - 9, y - 9 + w, 3, 3); R(c, col, x + 7, y - 7 + w, 5, 10); R(c, col, x + 7, y - 9 + w, 3, 3);
+    if (eyes) for (const [ex, ey] of [[-10, -4], [-8, 0], [8, -4], [10, 0]]) { R(c, '#fcfcfc', x + ex, y + ey + w, 2, 2); R(c, '#000', x + ex, y + ey + w, 1, 1); } // full of eyes (Revelation 4:8)
+  };
+  if (n.kind === 'angel') {
+    wings('#e0ecff');
+    R(c, '#a8b8d8', x - 5, y - 4, 11, 13); R(c, '#fcfcfc', x - 4, y - 4, 9, 12); R(c, '#f8d838', x - 4, y + 1, 9, 1);
+    disc(c, '#f8c898', x, y - 7, 3); R(c, '#f8e070', x - 3, y - 10, 7, 2); R(c, '#000', x - 2, y - 7, 1, 1); R(c, '#000', x + 1, y - 7, 1, 1);
+    R(c, '#f8d838', x - 4, y - 14, 9, 1); R(c, '#fff8c0', x - 3, y - 15, 7, 1); // halo
+  } else if (n.kind === 'elder') {
+    R(c, '#806020', x - 8, y - 9, 17, 18); R(c, '#c8a040', x - 7, y - 8, 15, 16); // his seat
+    R(c, '#c8c8d8', x - 5, y - 3, 11, 12); R(c, '#fcfcfc', x - 4, y - 3, 9, 11);
+    disc(c, '#e8b888', x, y - 6, 3); R(c, '#e8e8e8', x - 2, y - 4, 5, 3); // white beard
+    R(c, '#f8d838', x - 3, y - 11, 7, 2); R(c, '#f8d838', x - 3, y - 12, 1, 1); R(c, '#f8d838', x, y - 12, 1, 1); R(c, '#f8d838', x + 3, y - 12, 1, 1); // crown of gold
+  } else if (n.kind === 'lamb') {
+    disc(c, '#fff8c0', x, y, 10); c.globalAlpha = .5; disc(c, '#fffce8', x, y, 12); c.globalAlpha = 1;
+    disc(c, '#d8d8d8', x, y + 1, 6); disc(c, '#fcfcfc', x - 1, y, 5); disc(c, '#fcfcfc', x + 3, y - 1, 4);
+    R(c, '#fcfcfc', x + 4, y - 6, 4, 4); R(c, '#000', x + 6, y - 5, 1, 1); R(c, '#c02030', x - 2, y + 1, 2, 2); // as it had been slain (Revelation 5:6)
+    R(c, '#a0a0a0', x - 4, y + 5, 2, 3); R(c, '#a0a0a0', x + 3, y + 5, 2, 3);
+  } else { // the four living creatures (Revelation 4:7)
+    wings('#f0e8d0', true);
+    const body = { lion: '#e8a838', ox: '#a87850', man: '#e8b888', eagle: '#806040' }[n.kind];
+    R(c, '#605040', x - 5, y - 3, 11, 12); R(c, body, x - 4, y - 3, 9, 11);
+    if (n.kind === 'lion') { disc(c, '#a86018', x, y - 6, 5); disc(c, body, x, y - 6, 3); }
+    else if (n.kind === 'ox') { disc(c, body, x, y - 6, 4); R(c, '#fcfcfc', x - 6, y - 10, 3, 2); R(c, '#fcfcfc', x + 4, y - 10, 3, 2); }
+    else if (n.kind === 'man') { disc(c, body, x, y - 6, 3); R(c, '#806040', x - 3, y - 9, 7, 2); }
+    else { disc(c, body, x, y - 6, 4); R(c, '#f8d838', x - 1, y - 4, 3, 2); }
+    R(c, '#000', x - 2, y - 7, 1, 1); R(c, '#000', x + 1, y - 7, 1, 1);
+  }
+}
+// the throne itself is only light: "and he that sat was to look upon like a jasper and a sardine stone" (Revelation 4:3)
+function drawThrone(c, t) {
+  const x = t.x, y = t.y;
+  for (let a = 0; a <= 40; a++) { // a rainbow round about the throne, in sight like unto an emerald
+    const ang = Math.PI + a / 40 * Math.PI;
+    ['#a8f0c8', '#38c870', '#58e890'].forEach((col, i) => R(c, col, Math.round(x + Math.cos(ang) * (28 + i)), Math.round(y + 2 + Math.sin(ang) * (22 + i)), 2, 2));
+  }
+  R(c, '#806020', x - 15, y - 16, 30, 28); R(c, '#e8c048', x - 13, y - 14, 26, 24); R(c, '#f8e070', x - 13, y - 14, 26, 2);
+  R(c, '#c02030', x - 2, y - 11, 4, 4); R(c, '#38c870', x - 10, y - 8, 3, 3); R(c, '#38c870', x + 7, y - 8, 3, 3); // jasper, sardine and emerald
+  R(c, '#806020', x - 17, y + 6, 34, 8); R(c, '#e8c048', x - 16, y + 6, 32, 6);
+  const k = .55 + .25 * Math.sin(G.t * 2.4);
+  c.globalAlpha = k * .6; disc(c, '#fff8c0', x, y, 16); c.globalAlpha = k; disc(c, '#fffce8', x, y, 10); c.globalAlpha = 1; disc(c, '#fcfcfc', x, y, 6);
+  for (let i = 0; i < 6; i++) { const a = G.t * .8 + i * 1.047; R(c, '#fff8c0', Math.round(x + Math.cos(a) * 20), Math.round(y + Math.sin(a) * 14), 2, 2); }
+}
+// Jacob's ladder: a stairway of light, with angels going up and down it (Genesis 28:12)
+function drawLadder(c, L) {
+  const x = Math.round(L.x), y = Math.round(L.y);
+  c.globalAlpha = .35 + .1 * Math.sin(G.t * 3); R(c, '#fff8c0', x - 11, 0, 22, y + 10); c.globalAlpha = 1;
+  R(c, '#c8a040', x - 8, 0, 2, y + 10); R(c, '#c8a040', x + 6, 0, 2, y + 10);
+  for (let ry = y + 6 - Math.floor((G.t * 10) % 8); ry > 0; ry -= 8) R(c, '#f8e070', x - 6, ry, 12, 1);
+  for (let i = 0; i < 2; i++) { const ay = Math.round(i ? (G.t * 30) % (y + 10) : y + 10 - (G.t * 24) % (y + 10)); R(c, '#fcfcfc', x - 2 + i * 3, ay, 2, 3); R(c, '#f8d838', x - 2 + i * 3, ay - 2, 2, 1); }
 }
 
 function drawPlayer(c) {

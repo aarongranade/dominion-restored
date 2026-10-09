@@ -149,7 +149,45 @@ function buildOverRoom(idx, G) {
   if (info.gate && info.gate.kind === 'crack' && G.broken[idx]) {
     for (const [x, y] of info.gate.tiles) tiles[y * 16 + x] = T.PATH;
   }
+  if (G.restored) return restoreScreen({ kind: 'over', idx, k: info.k, theme: restoredTheme(OTH[info.k - 1]), tiles, exits: info.exits, info });
   return { kind: 'over', idx, k: info.k, theme: OTH[info.k - 1], tiles, exits: info.exits, info };
+}
+
+/* ---------------- the new earth (after the Dragon) ---------------- */
+const _restoredTh = {};
+function mixHex(a, b, k) {
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16), ch = s => Math.round(((pa >> s) & 255) * (1 - k) + ((pb >> s) & 255) * k);
+  return '#' + ((ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).padStart(6, '0');
+}
+// every land a little brighter, and in flower ("no more night", Revelation 22:5)
+function restoredTheme(th) {
+  if (_restoredTh[th.id]) return _restoredTh[th.id];
+  const t = Object.assign({}, th, { id: th.id + 'r', deco: 'flower', dc: ['#f8e038', '#f8a0c8', '#fcfcfc', '#a8d8f8'][th.seed % 4] });
+  for (const k of ['g1', 'g2', 'g3', 'p1']) if (t[k]) t[k] = mixHex(t[k], '#fff8e0', .16);
+  for (const k of ['t1', 't2', 't3', 'bush']) if (t[k]) t[k] = mixHex(t[k], '#80f080', .12);
+  return (_restoredTh[th.id] = t);
+}
+function restoreScreen(room) {
+  const t = room.tiles, r = mulberry32(room.idx * 131 + 7);
+  for (let i = 0; i < 192; i++) {
+    if (t[i] === T.SEAL || t[i] === T.CRACK) t[i] = T.PATH; // every seal is broken, every wall is down
+    else if (t[i] === T.FIRE) t[i] = T.DECO; // the flaming sword is put away (Genesis 3:24)
+    else if (t[i] === T.FLOOR && r() < .14) t[i] = T.DECO;
+  }
+  const bi = room.k - 1;
+  room.signText = RESTORED_SIGNS[bi];
+  if (WORLD.entry[bi] === room.idx) room.ladder = true; // placed on open ground once the room is populated
+  return room;
+}
+
+/* ---------------- the throne room (Revelation 4) ---------------- */
+function buildHeavenRoom() {
+  const t = new Uint8Array(192), I = (x, y) => y * 16 + x;
+  for (let y = 0; y < 12; y++) for (let x = 0; x < 16; x++) t[I(x, y)] = x === 0 || y === 0 || x === 15 || y === 11 ? T.WALL : T.FLOOR;
+  for (let x = 2; x <= 14; x += 2) t[I(x, 0)] = T.TORCH; // seven lamps of fire burning before the throne (Revelation 4:5)
+  for (let y = 1; y <= 2; y++) for (let x = 6; x <= 9; x++) t[I(x, y)] = T.BLOCK; // the golden dais
+  t[I(7, 11)] = T.EXIT; t[I(8, 11)] = T.EXIT; // the stairs down to the new earth
+  return { kind: 'heaven', theme: HEAVEN_THEME, tiles: t, exits: {}, throne: { x: 128, y: 30 } };
 }
 
 /* ---------------- dungeons ---------------- */
