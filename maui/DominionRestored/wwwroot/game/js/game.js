@@ -21,7 +21,7 @@ const GM = {
     if (G.mode === 'title') return;
     const p = G.p, ow = G.loc.kind === 'over' ? { idx: G.loc.idx, x: G.p.x, y: G.p.y } : G.overPos;
     Save.write({
-      v: 1, p: { hp: p.max, max: p.max, sword: p.sword, items: p.items, shield: p.shield, armor: p.armor, crown: p.crown, sel: p.sel },
+      v: 2, p: { hp: p.max, max: p.max, sword: p.sword, items: p.items, shield: p.shield, armor: p.armor, crown: p.crown, sel: p.sel },
       cleared: G.cleared, broken: G.broken, seen: G.seen, ds: G.ds.map(d => ({ unlocked: d.unlocked, cleared: d.cleared, taken: d.taken, keys: d.keys, bossOpen: d.bossOpen, item: d.item, boss: d.boss, visited: d.visited })),
       ow: ow || { idx: 0, x: 128, y: 120 }
     });
@@ -29,7 +29,7 @@ const GM = {
   slide, openChest, banner(text, dur) { G.bannerQ = { text: wrapText(text, 38), t: dur || 3.4 }; },
   onBump(tx, ty, q) {
     const rm = G.room, p = G.p;
-    if (q === T.SIGN) { if (rm.kind === 'over') say([SIGNS[rm.idx]]); return; }
+    if (q === T.SIGN) { if (rm.kind === 'over' && rm.info.signText) say([rm.info.signText]); return; }
     if (q === T.SEAL) { say([SEAL_TEXT[rm.k - 1]]); Aud.sfx('clink'); return; }
     if (q === T.CRACK) { say(['THE WALL IS CRACKED AND CRUMBLING. A MIGHTY TRUMPET BLAST MIGHT BRING IT DOWN.']); return; }
     if (q === T.DLOCK) {
@@ -51,7 +51,7 @@ const GM = {
   onExit() {
     if (G.mode !== 'play') return;
     const d = G.loc.d;
-    startFade(() => { const o = G.overPos || { idx: d * 2 + 1, x: 128, y: 60 }; loadOver(o.idx, o.x, o.y); G.save(); });
+    startFade(() => { const o = G.overPos || { idx: WORLD.dungeon[d], x: 128, y: 60 }; loadOver(o.idx, o.x, o.y); G.save(); });
   },
   onContainer(k) {
     const p = G.p; p.max += 2; p.hp = p.max; p.faith = p.maxFaith; Aud.sfx('fanfare'); fxBurst(p.x, p.y, ['#f83838', '#fff'], 20, 90, .8, 2);
@@ -133,7 +133,7 @@ function populate(room, fromSlide) {
       for (const s of memo) { let [x, y] = [s.x, s.y]; if (dist(x, y, p.x, p.y) < 40) [x, y] = freeSpot(70); const e = spawnEnemy(s.id, x, y); e.hp = s.hp; }
       return;
     }
-    const n = room.idx === 0 ? 2 : 2 + (Math.random() * 2 | 0) + (room.idx > 9 ? 1 : 0), pool = OPOOL[room.k - 1];
+    const n = room.idx === WORLD.start ? 2 : 2 + (Math.random() * 2 | 0) + (room.k > 5 ? 1 : 0), pool = OPOOL[room.k - 1];
     for (let i = 0; i < n; i++) { const [x, y] = freeSpot(70); spawnEnemy(pick(pool), x, y); }
     return;
   }
@@ -178,7 +178,6 @@ function loadOver(idx, px, py) {
   G.loc = { kind: 'over', idx }; G.room = room; G.p.x = px; G.p.y = py; unstick(G.p); px = G.p.x; py = G.p.y; G.p.dove = null; G.p.atk = 0; G.seen[idx] = true;
   G.entry = { x: px, y: py }; G.p.lastSafe = { x: px, y: py };
   populate(room); Aud.music('o' + room.k); setMode('play');
-  const first = idx % 2 === 0 && !G.seenBiome?.[room.k];
   if (!G.seenBiome) G.seenBiome = {};
   if (!G.seenBiome[room.k]) { G.seenBiome[room.k] = true; G.banner(OTH[room.k - 1].name + ' - ' + DUNGEONS[room.k - 1].ref, 3); }
 }
@@ -244,6 +243,14 @@ function applySave(s) {
   G.cleared = s.cleared; G.broken = s.broken || {}; G.seen = s.seen || {};
   G.ds = s.ds.map(d => Object.assign({ unlocked: {}, cleared: {}, taken: {}, keys: 0, bossOpen: false, item: false, boss: false, visited: {} }, d));
   G.overPos = null;
+  if (!s.v || s.v < 2) {
+    // saves from the smaller world: keep items and seals, restart at the next region's first screen,
+    // and reset room-by-room dungeon progress (the dungeons were redrawn)
+    const k = Math.min(9, G.cleared.filter(Boolean).length);
+    G.broken = (s.broken && s.broken[9]) ? { [WORLD.exit[4]]: true } : {}; G.seen = {};
+    G.ds.forEach(d => { d.unlocked = {}; d.cleared = {}; d.taken = {}; d.visited = {}; d.keys = 0; });
+    loadOver(WORLD.entry[k], 128, 96); return;
+  }
   loadOver(s.ow.idx, s.ow.x, s.ow.y);
 }
 function respawn() {
@@ -281,7 +288,7 @@ function updateRoom(dt) {
 function dungeonComplete() {
   const d = G.loc.d; G.cleared[d] = true; Aud.sfx('seal');
   startFade(() => {
-    const o = G.overPos || { idx: d * 2 + 1, x: 128, y: 60 };
+    const o = G.overPos || { idx: WORLD.dungeon[d], x: 128, y: 60 };
     if (d === 9) { startEnding(); return; }
     loadOver(o.idx, o.x, o.y); G.save();
     say(['SEAL ' + (d + 1) + ' OF 10 IS BROKEN! ' + (d < 9 ? 'A NEW PATH OPENS BEFORE YOU.' : '')]);
@@ -439,10 +446,11 @@ function drawHUD(c) {
   // minimap
   R(c, '#181828', 2, 2, 38, 28); R(c, '#404060', 2, 2, 38, 1); R(c, '#404060', 2, 29, 38, 1); R(c, '#404060', 2, 2, 1, 28); R(c, '#404060', 39, 2, 1, 28);
   if (!dung) {
-    for (let i = 0; i < 20; i++) {
-      const [sx, sy] = ORDER[i], x = 4 + sx * 7, y = 4 + sy * 6, cur = i === G.loc.idx;
-      R(c, cur ? (Math.floor(G.t * 4) % 2 ? '#f8d838' : '#fff') : G.seen[i] ? '#58a858' : '#2a3048', x, y, 6, 5);
-      if (i % 2 === 1) R(c, G.cleared[(i - 1) / 2] ? '#58f8f8' : '#f83838', x + 2, y + 1, 2, 2);
+    // 10x10 world: visited screens in their biome's colour, dungeon screens marked once seen
+    for (let i = 0; i < ORDER.length; i++) {
+      const [sx, sy] = ORDER[i], x = 6 + sx * 3, y = 6 + sy * 2, cur = i === G.loc.idx, k = WORLD.scr[i].k;
+      R(c, cur ? (Math.floor(G.t * 4) % 2 ? '#f8d838' : '#fff') : G.seen[i] ? OTH[k - 1].g1 : '#22263a', x, y, 3, 2);
+      if (G.seen[i] && !cur && WORLD.dungeon[k - 1] === i) R(c, G.cleared[k - 1] ? '#58f8f8' : '#f83838', x + 1, y, 1, 2);
     }
   } else {
     const dn = parseDungeon(G.loc.d), ds = G.ds[G.loc.d], cw = Math.min(7, Math.floor(34 / dn.w)), ch = Math.min(6, Math.floor(24 / dn.h)), ox = 4 + Math.floor((34 - cw * dn.w) / 2), oy = 4;
@@ -636,9 +644,9 @@ function boot() {
     const give = ['flame', 'dove', 'bow', 'rod', 'shofar', 'sling', 'shield', 'spirit', 'armor'];
     for (let i = 0; i < d; i++) { G.cleared[i] = true; const it = give[i]; if (it === 'flame') p.sword = 1; else if (it === 'spirit') p.sword = 2; else if (it === 'shield') p.shield = true; else if (it === 'armor') p.armor = true; else p.items[it] = true; }
     if (d >= 8) p.sword = 2; p.sel = ACTIVE_ITEMS.find(i => p.items[i]) || null;
-    if (q.has('boss')) { const it = give[d]; if (it === 'flame') p.sword = Math.max(p.sword, 1); else if (it === 'spirit') p.sword = 2; else if (it === 'shield') p.shield = true; else if (it === 'armor') p.armor = true; else if (it) p.items[it] = true; p.sel = ACTIVE_ITEMS.find(i => p.items[i]) || null; const ds = G.ds[d]; ds.item = true; ds.bossOpen = true; G.overPos = { idx: d * 2 + 1, x: 128, y: 60 }; enterDungeon(d); const dn = parseDungeon(d), b = Object.values(dn.cells).find(c => c.boss); G.loc.cell = b.key; G.room = makeRoom(buildDunRoom(G, d, b)); G.p.x = 128; G.p.y = 164; populate(G.room); }
-    else if (q.has('ow')) loadOver(d * 2 + 1, 128, 100);
-    else { G.overPos = { idx: d * 2 + 1, x: 128, y: 60 }; enterDungeon(d); }
+    if (q.has('boss')) { const it = give[d]; if (it === 'flame') p.sword = Math.max(p.sword, 1); else if (it === 'spirit') p.sword = 2; else if (it === 'shield') p.shield = true; else if (it === 'armor') p.armor = true; else if (it) p.items[it] = true; p.sel = ACTIVE_ITEMS.find(i => p.items[i]) || null; const ds = G.ds[d]; ds.item = true; ds.bossOpen = true; G.overPos = { idx: WORLD.dungeon[d], x: 128, y: 60 }; enterDungeon(d); const dn = parseDungeon(d), b = Object.values(dn.cells).find(c => c.boss); G.loc.cell = b.key; G.room = makeRoom(buildDunRoom(G, d, b)); G.p.x = 128; G.p.y = 164; populate(G.room); }
+    else if (q.has('ow')) loadOver(WORLD.dungeon[d], 128, 100);
+    else { G.overPos = { idx: WORLD.dungeon[d], x: 128, y: 60 }; enterDungeon(d); }
   }
   requestAnimationFrame(frame);
   // commands from a native wrapper (the MAUI app posts 'pause' / 'mute' / 'unmute' into this page)
