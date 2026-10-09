@@ -109,6 +109,20 @@ function owForgetFar(idx) {
   const [x, y] = ORDER[idx];
   for (const k in G.owMemo) { const [a, b] = ORDER[k]; if (Math.abs(a - x) + Math.abs(b - y) > 1) delete G.owMemo[k]; }
 }
+/* where room rewards appear: the floor tile nearest the middle of the room that the hero can walk to
+   (some layouts put a block or a pit in the exact centre) */
+function rewardSpot(room) {
+  const t = room.tiles, p = G.p, sx = clamp(Math.floor(p.x / 16), 1, 14), sy = clamp(Math.floor((p.y + 4) / 16), 1, 10);
+  const walk = (x, y) => x >= 1 && x <= 14 && y >= 1 && y <= 10 && !SOLID.has(t[y * 16 + x]) && t[y * 16 + x] !== T.PIT && t[y * 16 + x] !== T.FIRE;
+  const seen = new Uint8Array(192), q = [[sx, sy]]; seen[sy * 16 + sx] = 1;
+  let best = null, bd = 1e9;
+  while (q.length) {
+    const [x, y] = q.pop();
+    if (walk(x, y)) { const d = Math.hypot(x * 16 + 8 - 128, y * 16 + 8 - 96); if (d < bd) { bd = d; best = { x: x * 16 + 8, y: y * 16 + 8 }; } }
+    for (const [dx, dy] of DIRV) { const nx = x + dx, ny = y + dy; if (!seen[ny * 16 + nx] && walk(nx, ny)) { seen[ny * 16 + nx] = 1; q.push([nx, ny]); } }
+  }
+  return best || { x: 128, y: 96 };
+}
 function populate(room, fromSlide) {
   const p = G.p;
   if (room.kind === 'over') {
@@ -135,8 +149,8 @@ function populate(room, fromSlide) {
     return;
   }
   if (ds.cleared[cell.key]) {
-    if (cell.kroom && !ds.taken[cell.key]) room.pickups.push({ x: 128, y: 96, type: 'key', t: 0, roomKey: cell.key });
-    if (cell.item && !ds.item) room.chest = { x: 128, y: 92, open: false };
+    if (cell.kroom && !ds.taken[cell.key]) { const r = rewardSpot(room); room.pickups.push({ x: r.x, y: r.y, type: 'key', t: 0, roomKey: cell.key }); }
+    if (cell.item && !ds.item) { const r = rewardSpot(room); room.chest = { x: r.x, y: r.y - 4, open: false }; }
     return;
   }
   if (cell.start) { ds.cleared[cell.key] = true; return; }
@@ -154,9 +168,10 @@ function populate(room, fromSlide) {
 function onRoomCleared(room) {
   const ds = G.ds[room.d], cell = room.cell;
   room.shut = false; ds.cleared[cell.key] = true; openDoors(room, G); Aud.sfx('door');
-  if (cell.kroom) room.pickups.push({ x: 128, y: 96, type: 'key', t: 0, roomKey: cell.key });
-  if (cell.item && !ds.item) { room.chest = { x: 128, y: 92, open: false }; Aud.sfx('seal'); fxBurst(128, 92, ['#f8d838', '#fff'], 20, 70, .8, 2); }
-  if (cell.locked && !cell.item) { room.pickups.push({ x: 120, y: 96, type: 'heart', t: 0 }, { x: 136, y: 96, type: 'faith', t: 0 }); }
+  const spot = rewardSpot(room);
+  if (cell.kroom) room.pickups.push({ x: spot.x, y: spot.y, type: 'key', t: 0, roomKey: cell.key });
+  if (cell.item && !ds.item) { room.chest = { x: spot.x, y: spot.y - 4, open: false }; Aud.sfx('seal'); fxBurst(spot.x, spot.y - 4, ['#f8d838', '#fff'], 20, 70, .8, 2); }
+  if (cell.locked && !cell.item) { room.pickups.push({ x: spot.x - 6, y: spot.y, type: 'heart', t: 0 }, { x: spot.x + 6, y: spot.y, type: 'faith', t: 0 }); }
 }
 function loadOver(idx, px, py) {
   const room = makeRoom(buildOverRoom(idx, G));
