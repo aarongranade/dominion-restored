@@ -289,7 +289,7 @@ function update(dt) {
   const m = G.mode;
   if (m === 'title') return updateTitle(dt);
   if (m === 'play') {
-    if (Input.consume('start')) { setMode('pause'); G.menu = 0; return; }
+    if (Input.consume('start')) { setMode('pause'); G.menu = 0; G.quitArm = false; return; }
     updateRoom(dt);
     if (G.bannerQ) { G.bannerQ.t -= dt; if (G.bannerQ.t <= 0) G.bannerQ = null; }
   } else if (m === 'trans') {
@@ -342,14 +342,16 @@ function updateTitle(dt) {
   }
 }
 function updatePause(dt) {
-  const n = 3;
-  if (Input.consume('mup')) { G.menu = (G.menu + n - 1) % n; Aud.sfx('select'); }
-  if (Input.consume('mdown')) { G.menu = (G.menu + 1) % n; Aud.sfx('select'); }
-  if (Input.consume('start')) { setMode('play'); return; }
+  const n = 4;
+  if (Input.consume('mup')) { G.menu = (G.menu + n - 1) % n; G.quitArm = false; Aud.sfx('select'); }
+  if (Input.consume('mdown')) { G.menu = (G.menu + 1) % n; G.quitArm = false; Aud.sfx('select'); }
+  if (Input.consume('start')) { G.quitArm = false; setMode('play'); return; }
   if (Input.consume('sel')) cycleItem();
   if (Input.consume('a')) {
     Aud.sfx('confirm');
-    if (G.menu === 0) setMode('play'); else if (G.menu === 1) Aud.setMuted(!Aud.muted); else { G.save(); toTitle(); }
+    if (G.menu === 0) setMode('play'); else if (G.menu === 1) Aud.setMuted(!Aud.muted); else if (G.menu === 2) { G.save(); toTitle(); }
+    else if (!G.quitArm) G.quitArm = true; // quitting without saving asks for a second press
+    else toTitle(); // back to the last automatic save
   }
 }
 function updateEnding(dt) {
@@ -521,8 +523,8 @@ function drawPause(c) {
   if (p.shield) c.drawImage(icon('shield'), 36 + own.length * 20, 108); if (p.armor) c.drawImage(icon('armor'), 56 + own.length * 20, 108);
   if (p.sel) text(c, ITEMS[p.sel].name, 12, 132, '#fff'); else text(c, 'NO ITEMS YET', 12, 132, '#707090');
   text(c, 'HEARTS ' + (p.hp / 2) + '/' + (p.max / 2), 12, 146, '#f88');
-  const opts = ['RESUME', 'SOUND: ' + (Aud.muted ? 'OFF' : 'ON'), 'SAVE AND QUIT'];
-  opts.forEach((o, i) => textC(c, (G.menu === i ? '> ' : '  ') + o, 128, 164 + i * 12, G.menu === i ? '#f8d838' : '#c8c8d8'));
+  const opts = ['RESUME', 'SOUND: ' + (Aud.muted ? 'OFF' : 'ON'), 'SAVE AND QUIT', G.quitArm ? 'PRESS A AGAIN TO QUIT' : 'QUIT WITHOUT SAVING'];
+  opts.forEach((o, i) => textC(c, (G.menu === i ? '> ' : '  ') + o, 128, 158 + i * 11, G.menu === i ? (i === 3 && G.quitArm ? '#f88' : '#f8d838') : '#c8c8d8'));
   textC(c, 'ITEM BUTTON CYCLES B ITEM', 128, 206, '#707090');
 }
 function drawEnding(c) {
@@ -608,7 +610,7 @@ function boot() {
       for (let i = 0; i < n; i++) { const yy = MENU_Y + i * menuDY(); if (y >= yy - 5 && y <= yy + 11) { G.menu = i; Input.press.a = true; return; } }
       Input.press.a = true;
     } else if (m === 'dialog' || m === 'gameover' || m === 'ending') Input.press.a = true;
-    else if (m === 'pause') { const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * H; for (let i = 0; i < 3; i++) { const yy = 164 + i * 12; if (y >= yy - 4 && y <= yy + 10) { G.menu = i; Input.press.a = true; return; } } }
+    else if (m === 'pause') { const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * H; for (let i = 0; i < 4; i++) { const yy = 158 + i * 11; if (y >= yy - 3 && y <= yy + 8) { G.menu = i; Input.press.a = true; return; } } }
   });
   document.addEventListener('visibilitychange', () => { if (document.hidden) { if (G.mode === 'play') setMode('pause'); Aud.ctx && Aud.ctx.suspend && Aud.ctx.suspend(); } else Aud.resume(); });
   // debug hooks for testing: ?d=N jumps into dungeon N with items, ?god for invulnerability
