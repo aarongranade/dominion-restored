@@ -309,7 +309,7 @@ function toTitle() { G = freshState(); G.mode = 'title'; G.menu = 0; Aud.music('
 
 /* ---------- title / pause / ending ---------- */
 /* title menu entries */
-const MENU_Y = 150, MENU_DY = 13;
+const MENU_Y = 150, menuDY = () => titleOptions().length > 4 ? 11 : 13;
 function titleOptions() {
   const o = Save.has() ? [['continue', 'CONTINUE']] : [];
   o.push(['new', 'NEW GAME'], ['sound', 'SOUND: ' + (Aud.muted ? 'OFF' : 'ON')]);
@@ -489,7 +489,7 @@ function drawTitle(c) {
   // title
   textBig(c, 'DOMINION', 128, 14, '#f8d838', '#701818', 4); textBig(c, 'RESTORED', 128, 50, '#fcfcfc', '#2a2a80', 4);
   textC(c, 'FROM EDEN TO REVELATION', 128, 88, '#f8e8a0');
-  titleOptions().forEach(([, l], i) => { const y = MENU_Y + i * MENU_DY; R(c, 'rgba(0,0,0,.55)', 60, y - 2, 136, 12); textC(c, (G.menu === i && Math.floor(G.t * 3) % 2 === 0 ? '> ' : G.menu === i ? '> ' : '  ') + l, 128, y, G.menu === i ? '#f8d838' : '#c8c8d8'); });
+  titleOptions().forEach(([, l], i) => { const y = MENU_Y + i * menuDY(), bw = Math.max(136, textW(l) + 24); R(c, 'rgba(0,0,0,.55)', 128 - bw / 2, y - 2, bw, 11); textC(c, (G.menu === i && Math.floor(G.t * 3) % 2 === 0 ? '> ' : G.menu === i ? '> ' : '  ') + l, 128, y, G.menu === i ? '#f8d838' : '#c8c8d8'); });
   textC(c, 'TAP OR PRESS A', 128, 208, '#a0a0c0'); text(c, 'V1.0', 226, 214, '#707090');
 }
 function drawPause(c) {
@@ -590,7 +590,7 @@ function boot() {
     Aud.init(); Aud.resume();
     const m = G.mode; if (m === 'title') {
       const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * H, n = titleOptions().length;
-      for (let i = 0; i < n; i++) { const yy = MENU_Y + i * MENU_DY; if (y >= yy - 5 && y <= yy + 11) { G.menu = i; Input.press.a = true; return; } }
+      for (let i = 0; i < n; i++) { const yy = MENU_Y + i * menuDY(); if (y >= yy - 5 && y <= yy + 11) { G.menu = i; Input.press.a = true; return; } }
       Input.press.a = true;
     } else if (m === 'dialog' || m === 'gameover' || m === 'ending') Input.press.a = true;
     else if (m === 'pause') { const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * H; for (let i = 0; i < 3; i++) { const yy = 164 + i * 12; if (y >= yy - 4 && y <= yy + 10) { G.menu = i; Input.press.a = true; return; } } }
