@@ -437,7 +437,7 @@ function collectPickup(k) {
   switch (k.type) {
     case 'heart': healPlayer(2); Aud.sfx('heart'); fxText(k.x, k.y - 8, '+1', '#f88'); break;
     case 'faith': p.faith = Math.min(p.maxFaith, p.faith + 3); Aud.sfx('pick'); fxText(k.x, k.y - 8, '+3', '#8cf'); break;
-    case 'key': G.ds[G.loc.d].keys++; Aud.sfx('key'); fxText(k.x, k.y - 8, 'KEY', '#ff8'); break;
+    case 'key': G.ds[G.loc.d].keys++; if (k.roomKey) G.ds[G.loc.d].taken[k.roomKey] = true; Aud.sfx('key'); fxText(k.x, k.y - 8, 'KEY', '#ff8'); break;
     case 'container': G.onContainer(k); break;
     case 'light': if (G.room.boss && G.room.boss.onLight) G.room.boss.onLight(); Aud.sfx('magic'); break;
   }
