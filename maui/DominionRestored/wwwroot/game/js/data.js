@@ -39,9 +39,11 @@ const ITEMS = {
   shield: { name: 'SHIELD OF FAITH', icon: 'shield', text: 'IT REFLECTS FIERY DARTS AND ARROWS FROM THE FRONT. FACE YOUR FOES!' },
   spirit: { name: 'SWORD OF THE SPIRIT', icon: 'spirit', text: 'THE WORD OF GOD! YOUR BLADE NOW FIRES BEAMS OF LIGHT AND TURNS ASIDE TEMPTATION.' },
   armor: { name: 'ARMOR OF LIGHT', icon: 'armor', text: 'THE ARMOR OF GOD. YOU TAKE LESS DAMAGE FROM EVERY BLOW.' },
+  testimony: { name: 'WORD OF OUR TESTIMONY', icon: 'testimony', text: 'PRESS B TO SPEAK THE WORD. ITS LIGHT STUNS A FOE. COSTS 1 FAITH.', cost: 1 },
+  blood: { name: 'BLOOD OF THE LAMB', icon: 'blood', text: 'THE POWER THAT OVERCOMES THE ACCUSER. WHEN THE DRAGON COMES, IT WILL BE YOUR ONLY WEAPON.' },
   crown: { name: 'CROWN OF LIFE', icon: 'crown', text: 'THE CROWN OF LIFE FOR THE FAITHFUL! YOUR FAITH OVERFLOWS AND YOUR WOUNDS ARE HEALED.' }
 };
-const ACTIVE_ITEMS = ['dove', 'bow', 'rod', 'shofar', 'sling'];
+const ACTIVE_ITEMS = ['dove', 'bow', 'rod', 'shofar', 'sling', 'testimony'];
 
 /* ---- enemies ---- */
 const ENEMY = {
@@ -81,6 +83,7 @@ const ENEMY = {
   unclean: { name: 'UNCLEAN SPIRIT', shape: 'blob', pal: { a: '#88c838', b: '#486818', c: '#f8f838' }, hp: 3, spd: 60, beh: 'hopshoot', shoot: { kind: 'spit', rate: 2.6, spd: 80 }, dmg: 1 },
   harpy: { name: 'HARPY', shape: 'bat', pal: { a: '#c84848', b: '#802828', c: '#f8d838' }, hp: 2, spd: 72, beh: 'swoop', fly: 1, dmg: 1 },
   seabeast: { name: 'SEA BEAST', shape: 'beast', pal: { a: '#487868', b: '#285040', c: '#f8d838' }, hp: 6, spd: 30, beh: 'chase', dmg: 2 },
+  falseprophet: { name: 'FALSE PROPHET', shape: 'human', pal: { a: '#e8e0d0', b: '#a02828', c: '#f8b878' }, hp: 5, spd: 0, beh: 'teleporter', shoot: { kind: 'fire', rate: 1.8, spd: 85, n: 3, spread: .35 }, dmg: 2 },
   cinder: { name: 'CINDER', shape: 'flame', pal: { a: '#d83020', b: '#801010', c: '#f8a038' }, hp: 2, spd: 40, beh: 'float', fly: 1, dmg: 1 }
 };
 
@@ -103,7 +106,7 @@ const DUNGEONS = [
   { name: 'FURNACE OF BABYLON', ref: 'DANIEL 2-3', boss: 'image', bossName: 'THE GREAT IMAGE', item: 'shield', mini: 'lion', miniName: 'LION OF THE DEN', pool: ['lion', 'imp', 'flamesprite', 'magus'], layout: ['...B..', '.CCCCu', '.K.CCC', 'KCuCCu', 'J.CKCL', '.LCC..', 'CCCS..'] },
   { name: 'THE TEMPTATION', ref: 'MATTHEW 4', boss: 'tempter', bossName: 'THE TEMPTER', item: 'spirit', mini: 'shade', miniName: 'LEGION', pool: ['scorpion', 'shade', 'stonemimic', 'coinmimic'], layout: ['...B..', '.LCCKC', '.CgCCp', '..CCtK', '.JCSKL'] },
   { name: 'THE EMPTY TOMB', ref: 'MATTHEW 28', boss: 'death', bossName: 'DEATH', item: 'armor', mini: 'skeleton', miniName: 'GRAVE KNIGHT', pool: ['skeleton', 'wraith', 'skeleton', 'wraith'], layout: ['.....B', '....LC', '..KCCC', '..CCCC', '.LKCCK', 'JCCSCC'], dark: 1 },
-  { name: 'THE ABYSS', ref: 'REVELATION 12', boss: 'dragon', bossName: 'THE DRAGON', item: 'crown', mini: 'horseman', miniName: 'RIDER OF THE PALE HORSE', pool: ['stinger', 'horseman', 'unclean', 'harpy', 'seabeast', 'cinder'], layout: ['....B...', '.CCCCCL.', '.CCCCKu.', '..KKCCCJ', '..CCCCu.', 'C..uKCCL', 'LCuCCCC.', '..KCSCL.'], dark: 0.3 }
+  { name: 'THE ABYSS', ref: 'REVELATION 12', boss: 'dragon', bossName: 'THE DRAGON', item: 'testimony', items: ['testimony', 'blood'], mini: 'seabeast', minis: ['seabeast', 'falseprophet'], miniName: 'BEAST FROM THE SEA', pool: ['stinger', 'horseman', 'unclean', 'harpy', 'seabeast', 'cinder'], layout: ['....B...', '.CCCCCL.', '.CCKKKC.', '..CCCKCJ', '..LCCCC.', 'J..uuCCC', 'uCuCCCC.', '..KCSCL.'], dark: 0.3 }
 ];
 
 /* ---- text ---- */
