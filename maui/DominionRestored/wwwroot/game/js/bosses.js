@@ -126,7 +126,8 @@ class Serpent extends Boss {
 class Leviathan extends Boss {
   constructor() { super('leviathan', 'LEVIATHAN', 28); this.state = 'dive'; this.st = 0; this.hx = 128; this.hy = 100; this.waveDone = false; }
   // a pool in the middle of the room (tiles 4-11 x 4-7) ringed by a 3-tile-wide walkway; Leviathan never leaves the water
-  setup(room) { for (let y = 4; y <= 7; y++) for (let x = 4; x <= 11; x++) room.tiles[y * 16 + x] = T.WATER; room.dropSpot = { x: 128, y: 40 }; } // prize lands on the walkway above the pool
+  setup(room) { this.arena(room); }
+  arena(room) { for (let y = 4; y <= 7; y++) for (let x = 4; x <= 11; x++) room.tiles[y * 16 + x] = T.WATER; room.dropSpot = { x: 128, y: 40 }; } // prize lands on the walkway above the pool
   headPos() { const k = this.state === 'up' ? 1 : this.state === 'rise' ? Math.min(1, this.st / .5) : this.state === 'sink' ? Math.max(0, 1 - this.st / .5) : 0; return [this.hx + Math.sin(this.t * 2) * 5 * k, this.hy - 14 * k]; }
   rawParts() {
     if (this.state !== 'up' && this.state !== 'rise' && this.state !== 'sink') return [];
