@@ -351,6 +351,10 @@ const R3D = {
       this.beamOuter.material.opacity = .3 + .12 * Math.sin(G.t * 8);
       this.card(b.x, b.y + 14, 24, 32, 0, c => c.drawImage(icon('seal'), Math.round(b.x - 8), Math.round(b.y + 6 + Math.sin(G.t * 4) * 3)));
     }
+    // the throne room: the throne stands on its golden dais; Jacob's ladder rises into the sky
+    if (room.throne) { const t = room.throne; this.card(t.x, 46, 96, 48, 2, c => drawThrone(c, t), { lift: 10 }); }
+    if (room.ladder && room.ladder.x !== undefined) { const L = room.ladder; this.card(L.x, L.y + 10, 32, Math.min(200, L.y + 12), 0, c => drawLadder(c, L)); }
+    if (room.npcs) for (const n of room.npcs) this.card(n.x, n.y + 9, 40, 40, 6, c => drawNpc(c, n), { shadow: 12 });
     if (room.chest) { const k = room.chest; this.card(k.x, k.y + 7, 32, 32, 2, c => drawChest(c, k), { shadow: 18 }); }
     for (const k of room.pickups) this.card(k.x, k.y + 6, 32, 32, 6, c => drawPickups1(c, k), { shadow: 8 });
     for (const en of room.enemies) {
