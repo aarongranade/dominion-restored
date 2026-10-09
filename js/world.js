@@ -1,9 +1,11 @@
 'use strict';
 /* ===== Dominion Restored :: world generation ===== */
 
-/* overworld: 5x4 screens laid out as a snake, Eden -> Patmos */
-const ORDER = [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [4, 1], [3, 1], [2, 1], [1, 1], [0, 1], [0, 2], [1, 2], [2, 2], [3, 2], [4, 2], [4, 3], [3, 3], [2, 3], [1, 3], [0, 3]];
-const OW = 5, OH = 4;
+/* overworld: 10x10 screens. Each biome is a 5x2 block of screens joined by winding paths; the blocks run
+   as a snake in Bible order (Eden top-left -> Patmos bottom-right). idx = y * OW + x. */
+const OW = 10, OH = 10;
+const ORDER = []; for (let y = 0; y < OH; y++) for (let x = 0; x < OW; x++) ORDER.push([x, y]);
+const BLOCKS = [[0, 0], [1, 0], [1, 1], [0, 1], [0, 2], [1, 2], [1, 3], [0, 3], [0, 4], [1, 4]]; // biome k-1 -> block (5x2 screens)
 const OENTR = [[3, 2], [12, 2], [4, 2], [11, 2], [5, 2], [10, 2], [3, 2], [12, 2], [4, 2], [11, 2]]; // dungeon entrance tile per dungeon
 const OBST = [ // [type, weight]
   [[T.TREE, .6], [T.BUSH, .3], [T.ROCK, .1]], [[T.ROCK, .5], [T.TREE, .3], [T.WATER, .2]], [[T.ROCK, .6], [T.TREE, .2], [T.BUSH, .2]],
@@ -20,17 +22,47 @@ function dirBetween(a, b) { // direction from screen a to screen b: 0 S,1 N,2 W,
 function exitTiles(dir) {
   return dir === 0 ? [[7, 11], [8, 11]] : dir === 1 ? [[7, 0], [8, 0]] : dir === 2 ? [[0, 5], [0, 6]] : [[15, 5], [15, 6]];
 }
-function screenExits(idx) {
-  const ex = {};
-  if (idx > 0) ex[dirBetween(ORDER[idx], ORDER[idx - 1])] = idx - 1;
-  if (idx < ORDER.length - 1) ex[dirBetween(ORDER[idx], ORDER[idx + 1])] = idx + 1;
-  return ex; // dir -> neighbouring screen index
-}
+/* the world graph: which screens connect, where each biome starts, where its dungeon and its gate are */
+const WORLD = (function buildWorld() {
+  const rng = mulberry32(4242), at = (x, y) => y * OW + x;
+  const scr = ORDER.map(([x, y], idx) => ({ idx, x, y, k: 0, exits: {} }));
+  BLOCKS.forEach(([bx, by], i) => { for (let cy = 0; cy < 2; cy++) for (let cx = 0; cx < 5; cx++) scr[at(bx * 5 + cx, by * 2 + cy)].k = i + 1; });
+  const link = (a, b) => { scr[a].exits[dirBetween(ORDER[a], ORDER[b])] = b; scr[b].exits[dirBetween(ORDER[b], ORDER[a])] = a; };
+  // passages between consecutive biomes
+  const trans = [];
+  for (let i = 0; i < 9; i++) {
+    const [bx, by] = BLOCKS[i], [nx, ny] = BLOCKS[i + 1]; let a, b;
+    if (ny === by) { const cy = rng() < .5 ? 0 : 1; a = at(nx > bx ? bx * 5 + 4 : bx * 5, by * 2 + cy); b = at(nx > bx ? nx * 5 : nx * 5 + 4, ny * 2 + cy); }
+    else { const cx = Math.floor(rng() * 5); a = at(bx * 5 + cx, by * 2 + 1); b = at(nx * 5 + cx, ny * 2); }
+    trans.push([a, b]);
+  }
+  const entry = BLOCKS.map((_, i) => i === 0 ? at(0, 0) : trans[i - 1][1]);
+  const dungeon = [], exit = trans.map(t => t[0]).concat([null]);
+  BLOCKS.forEach(([bx, by], i) => {
+    const cells = []; for (let cy = 0; cy < 2; cy++) for (let cx = 0; cx < 5; cx++) cells.push(at(bx * 5 + cx, by * 2 + cy));
+    const inBlock = new Set(cells), seen = new Set([entry[i]]), stack = [entry[i]];
+    // random spanning tree (winding paths) plus a couple of shortcuts
+    while (stack.length) {
+      const c = stack[stack.length - 1], nb = DIRV.map(([dx, dy]) => at(scr[c].x + dx, scr[c].y + dy)).filter(n => n >= 0 && n < OW * OH && Math.abs(scr[n].x - scr[c].x) + Math.abs(scr[n].y - scr[c].y) === 1 && inBlock.has(n) && !seen.has(n));
+      if (!nb.length) { stack.pop(); continue; }
+      const n = nb[Math.floor(rng() * nb.length)]; link(c, n); seen.add(n); stack.push(n);
+    }
+    for (let e = 0; e < 2; e++) { const c = cells[Math.floor(rng() * 10)], d = DIRV[Math.floor(rng() * 4)], n = at(scr[c].x + d[0], scr[c].y + d[1]); if (inBlock.has(n) && Math.abs(scr[n].x - scr[c].x) + Math.abs(scr[n].y - scr[c].y) === 1) link(c, n); }
+    // dungeon: the screen farthest from where the biome is entered
+    const dist = { [entry[i]]: 0 }, q = [entry[i]];
+    while (q.length) { const c = q.shift(); for (const n of Object.values(scr[c].exits)) if (inBlock.has(n) && dist[n] === undefined) { dist[n] = dist[c] + 1; q.push(n); } }
+    dungeon.push(cells.reduce((a, c) => dist[c] > dist[a] ? c : a, cells[0]));
+  });
+  trans.forEach(([a, b]) => link(a, b));
+  return { scr, entry, dungeon, exit, start: entry[0] };
+})();
+function screenExits(idx) { return WORLD.scr[idx].exits; } // dir -> neighbouring screen index
 
 const _overCache = {};
 function genOverScreen(idx) {
   if (_overCache[idx]) return _overCache[idx];
-  const k = (idx >> 1) + 1, th = OTH[k - 1], rng = mulberry32(7000 + idx * 131);
+  const k = WORLD.scr[idx].k, th = OTH[k - 1], rng = mulberry32(7000 + idx * 131), bi = k - 1;
+  const isEntry = WORLD.entry[bi] === idx, isDungeon = WORLD.dungeon[bi] === idx, isExit = WORLD.exit[bi] === idx;
   const t = new Uint8Array(192), I = (x, y) => y * 16 + x;
   const exits = screenExits(idx), info = { idx, k, exits, gate: null, signPos: null, entrance: null };
   for (let i = 0; i < 192; i++) t[i] = rng() < .07 ? T.DECO : T.FLOOR;
@@ -73,20 +105,20 @@ function genOverScreen(idx) {
     for (const [x, y] of et) t[I(x, y)] = T.FLOOR;
     carve(Math.min(Math.max(inside[0][0], 1), 14), Math.min(Math.max(inside[0][1], 1), 10), 7, 5);
   }
-  // sign
-  t[I(6, 4)] = T.SIGN; info.signPos = [6, 4]; clear(5, 3, 7, 3); t[I(5, 4)] = T.FLOOR;
-  // healing spring in first screen of biome
-  if (idx % 2 === 0) { clear(11, 7, 12, 9); t[I(12, 8)] = T.SPRING; carve(11, 8, 9, 6); }
+  // signs where a biome begins and at its dungeon
+  if (isEntry || isDungeon) { t[I(6, 4)] = T.SIGN; info.signPos = [6, 4]; info.signText = SIGNS[bi * 2 + (isDungeon ? 1 : 0)]; clear(5, 3, 7, 3); t[I(5, 4)] = T.FLOOR; }
+  // healing spring where each biome begins
+  if (isEntry) { clear(11, 7, 12, 9); t[I(12, 8)] = T.SPRING; carve(11, 8, 9, 6); }
   // dungeon entrance
-  if (idx % 2 === 1) {
+  if (isDungeon) {
     const [ex, ey] = OENTR[k - 1];
     clear(ex - 2, 3, ex + 2, 4); carve(ex, 3, 8, 6);
     for (let x = ex - 1; x <= ex + 1; x++) { t[I(x, 1)] = bt; if (x !== ex) t[I(x, 2)] = bt; }
     t[I(ex, 2)] = T.ENTRANCE; t[I(ex, 1)] = bt; info.entrance = { x: ex, y: ey, d: k - 1 };
   }
   // gate toward the next biome
-  if (idx % 2 === 1 && idx < 19) {
-    const dir = +Object.keys(exits).find(d => exits[d] === idx + 1), et = exitTiles(dir);
+  if (isExit && k < 10) {
+    const dir = +Object.keys(exits).find(d => exits[d] === WORLD.entry[bi + 1]), et = exitTiles(dir);
     info.gate = { k, dir, tiles: [] };
     const inner = et.map(([x, y]) => [x + (dir === 3 ? -1 : dir === 2 ? 1 : 0), y + (dir === 0 ? -1 : dir === 1 ? 1 : 0)]);
     if (k === 4) { // red sea

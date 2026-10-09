@@ -50,6 +50,12 @@ const { chromium } = require(process.env.PW || 'playwright');
         }
       };
       await sleep(300); await dfs();
+      // the treasure is often found after the room below the boss was explored, so walk back to the boss door
+      if (!bossDone) {
+        const boss = cells.find(c => c.boss), route = (from) => { const prev = { [from.key]: null }, q = [from]; while (q.length) { const c = q.shift(); if (c.key === boss.key) break; for (const [dir, n] of Object.entries(c.exits)) if (!(n.key in prev)) { prev[n.key] = [c, +dir]; q.push(n); } } const steps = []; for (let k = boss.key; prev[k]; k = prev[k][0].key) steps.unshift(prev[k][1]); return steps; };
+        for (const dir of route(G0().room.cell)) { const ok = await goDir(dir); if (!ok) { out.push('route to boss blocked at ' + G0().room.cell.key); break; } await clearRoom(); }
+        if (G0().room.cell.boss) out.push('reached boss after treasure');
+      }
       out.push('visited ' + visited.size + '/' + cells.length);
       return out;
     }, d);

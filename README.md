@@ -31,7 +31,7 @@ Portrait phones show the game on top and controls below; landscape phones get a 
 
 ## The world
 
-The overworld is a 5×4 grid of screens that snakes through ten biomes in biblical order. Each biome has its own enemies, tiles, and music scale. Beating a dungeon's boss breaks that region's **seal** and opens the way on. Some gates need the right tool instead:
+The overworld is a 10×10 grid of 100 screens. Each of the ten biomes, in biblical order, is a block of 10 screens joined by winding paths, and its dungeon entrance is on the screen farthest from where you enter the region. Each biome has its own enemies, tiles, and music scale. Beating a dungeon's boss breaks that region's **seal** and opens the way on. Some gates need the right tool instead:
 
 * **Red Sea (Egypt)** — strike the water with the **Rod of Moses** to part it.
 * **Walls of Jericho** — blast the cracked wall with the **Shofar**.
@@ -59,7 +59,7 @@ Dungeon 8 is built around the three temptations of Jesus: a *Stones* room full o
 
 Sword (A): Staff → Flaming Sword → Sword of the Spirit (fires beams). B items spend **Faith** (the blue bar, which refills over time and from drops): Dove (free), Bow (1), Sling (1), Rod (2), Shofar (3). Shield and Armor are passive.
 
-Every dungeon has a locked treasure room guarded by a mini-boss. The treasure also unseals that dungeon's boss door.
+Dungeons run from 14 rooms (Eden) to 42 (the Abyss); `node tools/gen-layouts.js` generates and checks the layouts. Every dungeon has a locked treasure room guarded by a mini-boss. The treasure also unseals that dungeon's boss door.
 
 ## Project layout
 

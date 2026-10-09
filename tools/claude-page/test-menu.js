@@ -22,7 +22,7 @@
     }
     for (let i = 0; i < d; i++) G.cleared[i] = true;
     p.sel = ACTIVE_ITEMS.find(i => p.items[i]) || null;
-    G.overPos = { idx: d * 2 + 1, x: 128, y: 60 };
+    G.overPos = { idx: WORLD.dungeon[d], x: 128, y: 60 };
     if (boss) { const ds = G.ds[d]; ds.item = true; ds.bossOpen = true; }
     enterDungeon(d);
     if (boss) {

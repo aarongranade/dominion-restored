@@ -7,8 +7,8 @@ const { chromium } = require(process.env.PW || 'playwright'); const fs = require
   const r = await pg.evaluate(async () => {
     const sleep = ms => new Promise(r => setTimeout(r, ms)), G = () => __dr.G; __dr.newGame(); G().dialog = null; G().mode = 'play'; G().godmode = true; __bot.start();
     let screens = 0;
-    for (let i = 0; i < 20; i++) { __dr.loadOver(i, 128, 92); G().godmode = true; screens++; for (let k = 0; k < 4; k++) { await sleep(400); Input.keys = Object.assign({}, Input.keys, { l: Math.random() < .3, r: Math.random() < .3 }); } }
-    for (let d = 0; d < 10; d++) { G().overPos = { idx: d * 2 + 1, x: 128, y: 60 }; __dr.enterDungeon(d); G().godmode = true; await sleep(1500); }
+    for (let i = 0; i < 100; i++) { __dr.loadOver(i, 128, 92); G().godmode = true; screens++; for (let k = 0; k < 4; k++) { await sleep(400); Input.keys = Object.assign({}, Input.keys, { l: Math.random() < .3, r: Math.random() < .3 }); } }
+    for (let d = 0; d < 10; d++) { G().overPos = { idx: WORLD.dungeon[d], x: 128, y: 60 }; __dr.enterDungeon(d); G().godmode = true; await sleep(1500); }
     __bot.stop(); return { screens, mode: G().mode };
   });
   console.log(JSON.stringify(r), errs.length ? 'ERR ' + errs.slice(0, 5).join('\n') : 'no errors'); await b.close();
