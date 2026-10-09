@@ -20,6 +20,7 @@
       const it = give[i];
       if (it === 'flame') p.sword = Math.max(p.sword, 1); else if (it === 'spirit') p.sword = 2; else if (it === 'shield') p.shield = true; else if (it === 'armor') p.armor = true; else p.items[it] = true;
     }
+    if (boss && d === 9) { p.items.testimony = true; p.blood = true; } // the Abyss treasures
     for (let i = 0; i < d; i++) G.cleared[i] = true;
     p.sel = ACTIVE_ITEMS.find(i => p.items[i]) || null;
     G.overPos = { idx: WORLD.dungeon[d], x: 128, y: 60 };

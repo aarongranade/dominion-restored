@@ -21,8 +21,8 @@ const GM = {
     if (G.mode === 'title') return;
     const p = G.p, ow = G.loc.kind === 'over' ? { idx: G.loc.idx, x: G.p.x, y: G.p.y } : G.overPos;
     Save.write({
-      v: 2, p: { hp: p.max, max: p.max, sword: p.sword, items: p.items, shield: p.shield, armor: p.armor, crown: p.crown, sel: p.sel },
-      cleared: G.cleared, broken: G.broken, seen: G.seen, ds: G.ds.map(d => ({ unlocked: d.unlocked, cleared: d.cleared, taken: d.taken, keys: d.keys, bossOpen: d.bossOpen, item: d.item, boss: d.boss, visited: d.visited })),
+      v: 2, p: { hp: p.max, max: p.max, sword: (p.stash || p).sword, items: (p.stash || p).items, shield: p.shield, armor: (p.stash || p).armor, crown: p.crown, sel: (p.stash || p).sel, blood: p.blood },
+      cleared: G.cleared, broken: G.broken, seen: G.seen, ds: G.ds.map(d => ({ unlocked: d.unlocked, cleared: d.cleared, taken: d.taken, got: d.got || {}, keys: d.keys, bossOpen: d.bossOpen, item: d.item, boss: d.boss, visited: d.visited })),
       ow: ow || { idx: 0, x: 128, y: 120 }
     });
   },
@@ -63,6 +63,11 @@ const GM = {
     const spot = rm.dropSpot || { x: 128, y: 96 }; rm.pickups.push({ x: spot.x, y: spot.y, type: 'container', t: 0 });
     for (const e of rm.enemies) e.hp = 0; rm.enemies.length = 0;
     Aud.music('d' + (G.loc.d + 1));
+    if (boss.id === 'dragon') { // the crown is given, and every weapon comes home
+      rearm(); const p = G.p; p.crown = true; p.hp = p.max; p.faith = p.maxFaith; G.room.projs.length = 0;
+      G.chestGet = 'crown'; G.itemT = 3; G.itemMsg = ['YOU RECEIVED THE {CROWN OF LIFE}!', '"BE THOU FAITHFUL UNTO DEATH, AND I WILL GIVE THEE A {CROWN OF LIFE}." (REVELATION 2:10)', 'YOUR WEAPONS ARE RESTORED TO YOU.'];
+      Aud.sfx('fanfare'); setMode('itemget');
+    }
     G.save();
   },
   playerDied() { G.mode = 'dying'; G.timer = 1.6; Aud.music(''); Aud.sfx('over'); },
@@ -74,7 +79,11 @@ let G = freshState();
 function setMode(m) { G.mode = m; Input.clear(); }
 function say(pages, cb) {
   const out = [];
-  for (const pg of pages) { const lines = wrapText(pg, 37); for (let i = 0; i < lines.length; i += 4) out.push(lines.slice(i, i + 4)); }
+  // text inside {curly braces} is shown in gold, to point the player at what matters
+  for (const pg of pages) {
+    let hl = false; const lines = wrapText(pg, 37).map(l => { const o = { s: '', hl: [] }; for (const ch of l) { if (ch === '{') hl = true; else if (ch === '}') hl = false; else { o.s += ch; o.hl.push(hl); } } return o; });
+    for (let i = 0; i < lines.length; i += 4) out.push(lines.slice(i, i + 4));
+  }
   G.dialog = { pages: out, i: 0, chars: 0, cb, prev: G.mode === 'dialog' ? G.dialog.prev : G.mode };
   if (G.mode !== 'dialog') setMode('dialog');
 }
@@ -150,13 +159,13 @@ function populate(room, fromSlide) {
   }
   if (ds.cleared[cell.key]) {
     if (cell.kroom && !ds.taken[cell.key]) { const r = rewardSpot(room); room.pickups.push({ x: r.x, y: r.y, type: 'key', t: 0, roomKey: cell.key }); }
-    if (cell.item && !ds.item) { const r = rewardSpot(room); room.chest = { x: r.x, y: r.y - 4, open: false }; }
+    if (cell.item && !itemTaken(ds, cell)) { const r = rewardSpot(room); room.chest = { x: r.x, y: r.y - 4, open: false }; }
     return;
   }
   if (cell.start) { ds.cleared[cell.key] = true; return; }
   const pool = def.pool; let n = 2 + (d >= 3 ? 1 : 0) + (d >= 6 ? 1 : 0) + (cell.locked ? 1 : 0) + (Math.random() * 2 | 0);
   if (cell.item) {
-    const [mx, my] = [128, 80]; spawnEnemy(def.mini, mx, my, { mini: true }); n = 1 + (d >= 4 ? 1 : 0);
+    const [mx, my] = [128, 80]; spawnEnemy(def.minis ? def.minis[cell.itemIdx] : def.mini, mx, my, { mini: true }); n = 1 + (d >= 4 ? 1 : 0);
   }
   if (cell.mod === 'stones') { for (let i = 0; i < 3; i++) { const [x, y] = freeSpot(40); spawnEnemy('stonemimic', x, y); } n = 1; }
   if (cell.mod === 'kingdoms') {
@@ -170,7 +179,7 @@ function onRoomCleared(room) {
   room.shut = false; ds.cleared[cell.key] = true; openDoors(room, G); Aud.sfx('door');
   const spot = rewardSpot(room);
   if (cell.kroom) room.pickups.push({ x: spot.x, y: spot.y, type: 'key', t: 0, roomKey: cell.key });
-  if (cell.item && !ds.item) { room.chest = { x: spot.x, y: spot.y - 4, open: false }; Aud.sfx('seal'); fxBurst(spot.x, spot.y - 4, ['#f8d838', '#fff'], 20, 70, .8, 2); }
+  if (cell.item && !itemTaken(ds, cell)) { room.chest = { x: spot.x, y: spot.y - 4, open: false }; Aud.sfx('seal'); fxBurst(spot.x, spot.y - 4, ['#f8d838', '#fff'], 20, 70, .8, 2); }
   if (cell.locked && !cell.item) { room.pickups.push({ x: spot.x - 6, y: spot.y, type: 'heart', t: 0 }, { x: spot.x + 6, y: spot.y, type: 'faith', t: 0 }); }
 }
 function loadOver(idx, px, py) {
@@ -219,10 +228,14 @@ function finishSlide() {
     if (!G.seenBiome) G.seenBiome = {}; if (!G.seenBiome[G.room.k]) { G.seenBiome[G.room.k] = true; G.banner(OTH[G.room.k - 1].name + ' - ' + DUNGEONS[G.room.k - 1].ref, 3); } }
   else populate(G.room);
 }
+function itemTaken(ds, cell) { return ds.item || !!(ds.got && ds.got[cell.itemIdx || 0]); }
 function openChest(ch) {
-  const d = G.loc.d, ds = G.ds[d], it = DUNGEONS[d].item, p = G.p;
-  ch.open = true; ds.item = true; ds.bossOpen = true; G.chestGet = it;
+  const d = G.loc.d, ds = G.ds[d], def = DUNGEONS[d], idx = G.room.cell.itemIdx || 0, list = def.items || [def.item], it = list[idx], p = G.p;
+  ds.got = ds.got || {}; ds.got[idx] = true;
+  const all = list.every((_, i) => ds.got[i]); // the boss door opens once every treasure is found
+  ch.open = true; if (all) { ds.item = true; ds.bossOpen = true; } G.chestGet = it; G.chestAll = all; G.itemMsg = null;
   switch (it) {
+    case 'blood': p.blood = true; break;
     case 'flame': p.sword = Math.max(p.sword, 1); break; case 'spirit': p.sword = 2; break; case 'shield': p.shield = true; break; case 'armor': p.armor = true; break;
     case 'crown': p.crown = true; p.hp = p.max; p.faith = p.maxFaith; break;
     default: p.items[it] = true; if (!p.sel) p.sel = it; else if (ACTIVE_ITEMS.includes(it)) p.sel = it;
@@ -239,7 +252,7 @@ function newGame() {
 }
 function applySave(s) {
   G = freshState(); G.mode = 'play';
-  const p = G.p; Object.assign(p, { hp: s.p.hp, max: s.p.max, sword: s.p.sword, items: s.p.items, shield: s.p.shield, armor: s.p.armor, crown: s.p.crown, sel: s.p.sel });
+  const p = G.p; Object.assign(p, { hp: s.p.hp, max: s.p.max, sword: s.p.sword, items: s.p.items, shield: s.p.shield, armor: s.p.armor, crown: s.p.crown, sel: s.p.sel, blood: !!s.p.blood });
   G.cleared = s.cleared; G.broken = s.broken || {}; G.seen = s.seen || {};
   G.ds = s.ds.map(d => Object.assign({ unlocked: {}, cleared: {}, taken: {}, keys: 0, bossOpen: false, item: false, boss: false, visited: {} }, d));
   G.overPos = null;
@@ -253,7 +266,18 @@ function applySave(s) {
   }
   loadOver(s.ow.idx, s.ow.x, s.ow.y);
 }
+/* the Dragon strips the hero down to the Shield of Faith, the Word of Our Testimony and the Blood of the Lamb */
+function disarm() {
+  const p = G.p; if (p.stash) return;
+  p.stash = { sword: p.sword, items: Object.assign({}, p.items), sel: p.sel, armor: p.armor };
+  p.items = { testimony: true }; p.sel = 'testimony'; p.armor = false; p.lamb = true; p.dove = null;
+}
+function rearm() {
+  const p = G.p; p.lamb = false; p.horse = false; if (!p.stash) return;
+  p.sword = p.stash.sword; p.items = p.stash.items; p.sel = p.stash.sel; p.armor = p.stash.armor; p.stash = null;
+}
 function respawn() {
+  rearm();
   G.owMemo = {}; // a fresh start after falling
   const p = G.p; p.hp = p.max; p.faith = p.maxFaith; p.inv = 1.5; p.confuse = 0; p.fall = 0; p.kbt = 0; p.dove = null;
   if (G.loc.kind === 'dun') {
@@ -314,7 +338,7 @@ function update(dt) {
   } else if (m === 'trans') {
     const tr = G.trans; tr.t += dt; updateFx(dt); if (tr.t >= tr.dur) finishSlide();
   } else if (m === 'dialog') {
-    const d = G.dialog, pg = d.pages[d.i], total = pg.join('').length;
+    const d = G.dialog, pg = d.pages[d.i], total = pageLen(pg);
     if (d.chars < total) { const before = Math.floor(d.chars); d.chars += dt * 50; if (Math.floor(d.chars) !== before && Math.floor(d.chars) % 3 === 0) Aud.sfx('text'); }
     if (Input.consume('a') || Input.consume('b')) {
       if (d.chars < total) d.chars = total; else { Aud.sfx('select'); d.i++; d.chars = 0; if (d.i >= d.pages.length) endDialog(); }
@@ -322,7 +346,8 @@ function update(dt) {
     if (G.room) { updateFx(dt); }
   } else if (m === 'itemget') {
     G.itemT -= dt; updateFx(dt);
-    if (G.itemT <= 0) { Aud.music('d' + (G.loc.d + 1)); const it = ITEMS[G.chestGet]; say([it.name + '! ' + it.text, 'THE BOSS KEY IS YOURS! THE DOOR TO THE DUNGEON\'S GUARDIAN IS UNSEALED.']); }
+    if (G.itemT <= 0 && G.itemMsg) { Aud.music('d' + (G.loc.d + 1)); const m = G.itemMsg; G.itemMsg = null; say(m); }
+    else if (G.itemT <= 0) { Aud.music('d' + (G.loc.d + 1)); const it = ITEMS[G.chestGet]; if (!G.chestAll) { say([it.name + '! ' + it.text, 'ANOTHER TREASURE STILL LIES HIDDEN IN THIS DUNGEON. THE BOSS DOOR OPENS WHEN YOU HAVE BOTH.']); } else say([it.name + '! ' + it.text, 'THE BOSS KEY IS YOURS! THE DOOR TO THE DUNGEON\'S GUARDIAN IS UNSEALED.']); }
   } else if (m === 'bossintro') {
     const bi = G.bossIntro; bi.t += dt; if (bi.t > 3.2) startBoss();
   } else if (m === 'dying') {
@@ -460,7 +485,7 @@ function drawHUD(c) {
       if (!vis && !near) continue;
       R(c, cur ? (Math.floor(G.t * 4) % 2 ? '#f8d838' : '#fff') : vis ? '#7878c8' : '#34344c', x, y, cw - 1, ch - 1);
       if (vis && cell.boss) R(c, '#f83838', x + 1, y + 1, cw - 3, ch - 3);
-      else if (vis && cell.item && !ds.item) R(c, '#f8d838', x + 1, y + 1, cw - 3, ch - 3);
+      else if (vis && cell.item && !itemTaken(ds, cell)) R(c, '#f8d838', x + 1, y + 1, cw - 3, ch - 3);
     }
   }
   // hearts
@@ -474,19 +499,23 @@ function drawHUD(c) {
     if (ds.bossOpen) c.drawImage(icon('bosskey'), 115, 17, 12, 12);
   } else { c.drawImage(icon('seal'), 115, 3, 12, 12); text(c, G.cleared.filter(Boolean).length + '/10', 128, 6, '#f8d838'); }
   // A / B
-  const sw = ['staff', 'flame', 'spirit'][p.sword];
+  const sw = p.lamb ? 'blood' : ['staff', 'flame', 'spirit'][p.sword];
   R(c, '#303050', 186, 3, 18, 18); R(c, '#000', 187, 4, 16, 16); c.drawImage(icon(sw), 187, 4); text(c, 'A', 192, 22, '#f88');
   R(c, '#303050', 212, 3, 18, 18); R(c, '#000', 213, 4, 16, 16); if (p.sel && p.items[p.sel]) c.drawImage(icon(ITEMS[p.sel].icon), 213, 4); text(c, 'B', 218, 22, '#8af');
   if (p.shield) c.drawImage(icon('shield'), 236, 4, 10, 10); if (p.armor) c.drawImage(icon('armor'), 236, 16, 10, 10);
 }
 function drawBox(c, x, y, w, h) { R(c, '#fff', x, y, w, h); R(c, '#000', x + 1, y + 1, w - 2, h - 2); R(c, '#2838a0', x + 3, y + 3, w - 6, h - 6); R(c, '#101858', x + 4, y + 4, w - 8, h - 8); }
+const pageLen = pg => pg.reduce((a, l) => a + l.s.length, 0);
 function drawDialog(c) {
   const d = G.dialog; if (!d) return;
   const oy = G.room && G.p.y + HUDH > 118 && G.mode === 'dialog' ? HUDH + 4 - 150 : 0; // keep the hero visible
   drawBox(c, 6, 150 + oy, 244, 68);
   let left = Math.floor(d.chars); const pg = d.pages[d.i];
-  for (let i = 0; i < pg.length; i++) { const s = pg[i].slice(0, Math.max(0, left)); left -= pg[i].length; text(c, s, 14, 158 + oy + i * 12, '#fff'); }
-  if (d.chars >= pg.join('').length && Math.floor(G.t * 3) % 2) { R(c, '#fff', 238, 208 + oy, 5, 2); R(c, '#fff', 239, 210 + oy, 3, 1); R(c, '#fff', 240, 211 + oy, 1, 1); }
+  for (let i = 0; i < pg.length; i++) {
+    const n = Math.min(pg[i].s.length, Math.max(0, left)); left -= pg[i].s.length;
+    for (let j = 0; j < n; j++) c.drawImage(glyph(pg[i].s[j].toUpperCase(), pg[i].hl[j] ? '#f8d838' : '#fcfcfc', '#000'), 14 + j * 6, 158 + oy + i * 12);
+  }
+  if (d.chars >= pageLen(pg) && Math.floor(G.t * 3) % 2) { R(c, '#fff', 238, 208 + oy, 5, 2); R(c, '#fff', 239, 210 + oy, 3, 1); R(c, '#fff', 240, 211 + oy, 1, 1); }
 }
 function drawBanner(c) {
   const b = G.bannerQ; if (!b) return;
@@ -644,7 +673,7 @@ function boot() {
     const give = ['flame', 'dove', 'bow', 'rod', 'shofar', 'sling', 'shield', 'spirit', 'armor'];
     for (let i = 0; i < d; i++) { G.cleared[i] = true; const it = give[i]; if (it === 'flame') p.sword = 1; else if (it === 'spirit') p.sword = 2; else if (it === 'shield') p.shield = true; else if (it === 'armor') p.armor = true; else p.items[it] = true; }
     if (d >= 8) p.sword = 2; p.sel = ACTIVE_ITEMS.find(i => p.items[i]) || null;
-    if (q.has('boss')) { const it = give[d]; if (it === 'flame') p.sword = Math.max(p.sword, 1); else if (it === 'spirit') p.sword = 2; else if (it === 'shield') p.shield = true; else if (it === 'armor') p.armor = true; else if (it) p.items[it] = true; p.sel = ACTIVE_ITEMS.find(i => p.items[i]) || null; const ds = G.ds[d]; ds.item = true; ds.bossOpen = true; G.overPos = { idx: WORLD.dungeon[d], x: 128, y: 60 }; enterDungeon(d); const dn = parseDungeon(d), b = Object.values(dn.cells).find(c => c.boss); G.loc.cell = b.key; G.room = makeRoom(buildDunRoom(G, d, b)); G.p.x = 128; G.p.y = 164; populate(G.room); }
+    if (q.has('boss')) { if (d === 9) { p.items.testimony = true; p.blood = true; } const it = give[d]; if (it === 'flame') p.sword = Math.max(p.sword, 1); else if (it === 'spirit') p.sword = 2; else if (it === 'shield') p.shield = true; else if (it === 'armor') p.armor = true; else if (it) p.items[it] = true; p.sel = ACTIVE_ITEMS.find(i => p.items[i]) || null; const ds = G.ds[d]; ds.item = true; ds.bossOpen = true; G.overPos = { idx: WORLD.dungeon[d], x: 128, y: 60 }; enterDungeon(d); const dn = parseDungeon(d), b = Object.values(dn.cells).find(c => c.boss); G.loc.cell = b.key; G.room = makeRoom(buildDunRoom(G, d, b)); G.p.x = 128; G.p.y = 164; populate(G.room); }
     else if (q.has('ow')) loadOver(WORLD.dungeon[d], 128, 100);
     else { G.overPos = { idx: WORLD.dungeon[d], x: 128, y: 60 }; enterDungeon(d); }
   }
