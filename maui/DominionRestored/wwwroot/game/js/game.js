@@ -175,7 +175,7 @@ function onRoomCleared(room) {
 }
 function loadOver(idx, px, py) {
   const room = makeRoom(buildOverRoom(idx, G));
-  G.loc = { kind: 'over', idx }; G.room = room; G.p.x = px; G.p.y = py; G.p.dove = null; G.p.atk = 0; G.seen[idx] = true;
+  G.loc = { kind: 'over', idx }; G.room = room; G.p.x = px; G.p.y = py; unstick(G.p); px = G.p.x; py = G.p.y; G.p.dove = null; G.p.atk = 0; G.seen[idx] = true;
   G.entry = { x: px, y: py }; G.p.lastSafe = { x: px, y: py };
   populate(room); Aud.music('o' + room.k); setMode('play');
   const first = idx % 2 === 0 && !G.seenBiome?.[room.k];
@@ -200,9 +200,21 @@ function slide(dir) {
   G.trans = { dir, t: 0, dur: .55, from: G.room, to: next, nloc, sx: p.x, sy: p.y, nx, ny };
   setMode('trans');
 }
+/* never leave the hero standing in water or a wall: e.g. walking back over a parted Red Sea after
+   the waters have closed. Moves him to the nearest open floor. */
+function unstick(p) {
+  if (!boxHitsSolid(p, p.x, p.y + p.oy) && tileAtPx(p.x, p.y + 4) !== T.PIT) return;
+  const t = G.room.tiles; let best = null, bd = 1e9;
+  for (let ty = 1; ty < 11; ty++) for (let tx = 1; tx < 15; tx++) {
+    const v = t[ty * 16 + tx]; if (SOLID.has(v) || v === T.PIT || v === T.FIRE) continue;
+    const x = tx * 16 + 8, y = ty * 16 + 4; if (boxHitsSolid(p, x, y + p.oy)) continue;
+    const d = Math.hypot(x - p.x, y - p.y); if (d < bd) { bd = d; best = [x, y]; }
+  }
+  if (best) { p.x = best[0]; p.y = best[1]; }
+}
 function finishSlide() {
   const tr = G.trans; G.trans = null; const p = G.p;
-  G.room = tr.to; G.loc = tr.nloc; p.x = tr.nx; p.y = tr.ny; p.lastSafe = { x: p.x, y: p.y }; G.entry = { x: p.x, y: p.y }; p.dove = null; p.atk = 0;
+  G.room = tr.to; G.loc = tr.nloc; p.x = tr.nx; p.y = tr.ny; unstick(p); p.lastSafe = { x: p.x, y: p.y }; G.entry = { x: p.x, y: p.y }; p.dove = null; p.atk = 0;
   setMode('play');
   if (G.loc.kind === 'over') { G.seen[G.loc.idx] = true; populate(G.room); Aud.music('o' + G.room.k); G.save();
     if (!G.seenBiome) G.seenBiome = {}; if (!G.seenBiome[G.room.k]) { G.seenBiome[G.room.k] = true; G.banner(OTH[G.room.k - 1].name + ' - ' + DUNGEONS[G.room.k - 1].ref, 3); } }
