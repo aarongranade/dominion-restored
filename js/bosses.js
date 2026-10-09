@@ -124,8 +124,9 @@ class Serpent extends Boss {
 /* ---- 2. leviathan ---- */
 class Leviathan extends Boss {
   constructor() { super('leviathan', 'LEVIATHAN', 28); this.state = 'dive'; this.st = 0; this.hx = 128; this.hy = 100; this.waveDone = false; }
-  setup(room) { for (let x = 1; x < 15; x++) for (let y = 1; y <= 2; y++) room.tiles[y * 16 + x] = T.WATER; }
-  headPos() { const k = this.state === 'up' ? 1 : this.state === 'rise' ? Math.min(1, this.st / .5) : this.state === 'sink' ? Math.max(0, 1 - this.st / .5) : 0; return [this.hx + Math.sin(this.t * 2) * 5 * k, this.hy - 34 * k]; }
+  // a pool in the middle of the room (tiles 4-11 x 4-7) ringed by a 3-tile-wide walkway; Leviathan never leaves the water
+  setup(room) { for (let y = 4; y <= 7; y++) for (let x = 4; x <= 11; x++) room.tiles[y * 16 + x] = T.WATER; }
+  headPos() { const k = this.state === 'up' ? 1 : this.state === 'rise' ? Math.min(1, this.st / .5) : this.state === 'sink' ? Math.max(0, 1 - this.st / .5) : 0; return [this.hx + Math.sin(this.t * 2) * 5 * k, this.hy - 14 * k]; }
   rawParts() {
     if (this.state !== 'up' && this.state !== 'rise' && this.state !== 'sink') return [];
     const h = this.headPos(), out = [{ x: h[0], y: h[1], hw: 10, hh: 9, vuln: this.state === 'up', id: 'head' }];
@@ -135,15 +136,15 @@ class Leviathan extends Boss {
   ai(dt) {
     const p = ppos(), rage = 1 - this.ratio; this.st += dt;
     if (this.state === 'dive') {
+      // swims under the surface toward the hero, but only within the pool, so it surfaces at the near edge
       const a = Math.atan2(p[1] - this.hy, p[0] - this.hx), sp = 55 + rage * 40; this.hx += Math.cos(a) * sp * dt; this.hy += Math.sin(a) * sp * dt;
-      this.hx = clamp(this.hx, 40, 216); this.hy = clamp(this.hy, 80, 160);
-      if (!this.waveDone && rage > .3 && this.st > .3) { this.waveDone = true; const gap = rint(1, 13); for (let i = 1; i < 15; i++) if (Math.abs(i - gap) > 1) shootAng(i * 16 + 8, 36, Math.PI / 2, 70 + rage * 30, 'water', 1, { life: 3 }); Aud.sfx('boom'); }
-      if (this.st > 2.2 - rage * .7) { this.state = 'rise'; this.st = 0; this.waveDone = false; Aud.sfx('boom'); }
+      this.hx = clamp(this.hx, 76, 180); this.hy = clamp(this.hy, 80, 124);
+      if (this.st > 2.2 - rage * .7) { this.state = 'rise'; this.st = 0; Aud.sfx('boom'); }
     } else if (this.state === 'rise') {
       if (this.st > .5) { this.state = 'up'; this.st = 0; this.shots = 0; Aud.sfx('bossroar'); G.shake = .3; }
     } else if (this.state === 'up') {
       const h = this.headPos();
-      if (this.st > .5 + this.shots * .9 && this.shots < 3) { this.shots++; ring(h[0], h[1], 10 + (rage > .5 ? 4 : 0), 70, 'water', 1, this.shots * .3); if (this.shots === 2) fan(h[0], h[1], p[0], p[1], 3, .3, 95, 'water', 1); Aud.sfx('spit'); }
+      if (this.st > .5 && !this.shots) { this.shots = 1; ring(h[0], h[1], 10 + (rage > .5 ? 4 : 0), 70, 'water', 1, rnd(0, .6)); Aud.sfx('spit'); } // one wave per surfacing
       if (this.st > 3.4) { this.state = 'sink'; this.st = 0; }
     } else if (this.state === 'sink') {
       if (this.st > .5) { this.state = 'dive'; this.st = 0; }

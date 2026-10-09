@@ -234,8 +234,8 @@ function updateSwordHit() {
       if (rm.tiles[ty * 16 + tx] === T.BUSH) { rm.tiles[ty * 16 + tx] = T.FLOOR; fxBurst(tx * 16 + 8, ty * 16 + 8, ['#f83800', '#f8a038', '#f8f038', '#303030'], 14, 70, .6, 2); Aud.sfx('kill'); if (Math.random() < .5) dropAt(tx * 16 + 8, ty * 16 + 8, true); }
     }
   }
-  // Serpent's room: each corner statue gives up one heart when slashed (once per visit)
-  if (rm.kind === 'dun' && rm.d === 0 && rm.cell && rm.cell.boss) {
+  // Serpent's and Leviathan's rooms: each corner statue gives up one heart when slashed (once per visit)
+  if (rm.kind === 'dun' && (rm.d === 0 || rm.d === 1) && rm.cell && rm.cell.boss) {
     if (!rm.statueHearts) rm.statueHearts = {};
     for (const [tx, ty] of [[1, 1], [14, 1], [1, 10], [14, 10]]) {
       const k = tx + ',' + ty;
