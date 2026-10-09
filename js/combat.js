@@ -474,17 +474,16 @@ function updatePickups(dt) {
     if (dist(k.x, k.y, p.x, p.y + 3) < 11 && p.fall <= 0) { collectPickup(k); rm.pickups.splice(i, 1); }
   }
 }
-function drawPickups(c) {
-  for (const k of G.room.pickups) {
-    const bob = Math.round(Math.sin(k.t * 6) * 1.5), x = Math.round(k.x), y = Math.round(k.y) + bob;
-    if (k.ttl !== undefined && k.ttl - k.t < 2 && Math.floor(k.t * 10) % 2) continue;
-    c.globalAlpha = .4; R(c, '#000', x - 3, Math.round(k.y) + 5, 7, 2); c.globalAlpha = 1;
-    if (k.type === 'heart') c.drawImage(heartImg(2), x - 4, y - 4);
-    else if (k.type === 'faith') c.drawImage(icon('faith'), x - 8, y - 8);
-    else if (k.type === 'key') c.drawImage(icon('key'), x - 8, y - 8);
-    else if (k.type === 'container') { const s = 2; c.save(); c.translate(x, y); c.scale(s, s); c.drawImage(heartImg(2), -4, -4); c.restore(); if (Math.floor(k.t * 6) % 2) R(c, '#fff', x + 6, y - 8, 2, 2); }
-    else if (k.type === 'light') { disc(c, 'rgba(255,255,200,.4)', x, y, 8); disc(c, '#fff8c0', x, y, 4); disc(c, '#fff', x, y, 2); }
-  }
+function drawPickups(c) { for (const k of G.room.pickups) drawPickups1(c, k); }
+function drawPickups1(c, k) {
+  const bob = Math.round(Math.sin(k.t * 6) * 1.5), x = Math.round(k.x), y = Math.round(k.y) + bob;
+  if (k.ttl !== undefined && k.ttl - k.t < 2 && Math.floor(k.t * 10) % 2) return;
+  c.globalAlpha = .4; R(c, '#000', x - 3, Math.round(k.y) + 5, 7, 2); c.globalAlpha = 1;
+  if (k.type === 'heart') c.drawImage(heartImg(2), x - 4, y - 4);
+  else if (k.type === 'faith') c.drawImage(icon('faith'), x - 8, y - 8);
+  else if (k.type === 'key') c.drawImage(icon('key'), x - 8, y - 8);
+  else if (k.type === 'container') { const s = 2; c.save(); c.translate(x, y); c.scale(s, s); c.drawImage(heartImg(2), -4, -4); c.restore(); if (Math.floor(k.t * 6) % 2) R(c, '#fff', x + 6, y - 8, 2, 2); }
+  else if (k.type === 'light') { disc(c, 'rgba(255,255,200,.4)', x, y, 8); disc(c, '#fff8c0', x, y, 4); disc(c, '#fff', x, y, 2); }
 }
 
 function updateEnemy(e, dt) {

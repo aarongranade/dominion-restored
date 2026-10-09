@@ -1,6 +1,6 @@
 /* Offline cache for Dominion Restored */
-const CACHE = 'dominion-restored-v1';
-const FILES = ['./', 'index.html', 'style.css', 'icon.svg', 'manifest.webmanifest', 'js/core.js', 'js/gfx.js', 'js/data.js', 'js/world.js', 'js/combat.js', 'js/bosses.js', 'js/game.js'];
+const CACHE = 'dominion-restored-v2';
+const FILES = ['./', 'index.html', 'style.css', 'icon.svg', 'manifest.webmanifest', 'js/core.js', 'js/gfx.js', 'js/data.js', 'js/world.js', 'js/combat.js', 'js/bosses.js', 'js/render3d.js', 'js/game.js', 'js/vendor/three.min.js'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
