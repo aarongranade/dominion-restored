@@ -89,7 +89,7 @@ const Input = {
 /* ---------------- Save ---------------- */
 const Save = {
   key: 'dominion-restored-v1',
-  has() { try { return !!localStorage.getItem(this.key); } catch (e) { return false; } },
+  has() { const s = this.load(); return !!(s && s.p && s.ds); }, // only a whole save counts
   load() { try { return JSON.parse(localStorage.getItem(this.key)); } catch (e) { return null; } },
   write(d) { try { localStorage.setItem(this.key, JSON.stringify(d)); } catch (e) { } },
   wipe() { try { localStorage.removeItem(this.key); } catch (e) { } }

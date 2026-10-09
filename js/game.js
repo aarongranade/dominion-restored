@@ -19,17 +19,18 @@ function freshState() {
 const GM = {
   save() {
     if (G.mode === 'title') return;
-    const p = G.p, ow = G.loc.kind === 'over' ? { idx: G.loc.idx, x: G.p.x, y: G.p.y } : G.overPos;
+    const p = G.p, heaven = G.loc.kind === 'heaven', ow = G.loc.kind === 'over' ? { idx: G.loc.idx, x: G.p.x, y: G.p.y } : G.overPos;
     Save.write({
       v: 2, p: { hp: p.max, max: p.max, sword: (p.stash || p).sword, items: (p.stash || p).items, shield: p.shield, armor: (p.stash || p).armor, crown: p.crown, sel: (p.stash || p).sel, blood: p.blood },
       cleared: G.cleared, broken: G.broken, seen: G.seen, ds: G.ds.map(d => ({ unlocked: d.unlocked, cleared: d.cleared, taken: d.taken, got: d.got || {}, heart: !!d.heart, keys: d.keys, bossOpen: d.bossOpen, item: d.item, boss: d.boss, visited: d.visited })),
-      ow: ow || { idx: 0, x: 128, y: 120 }
+      ow: ow || (heaven ? null : { idx: 0, x: 128, y: 120 }),
+      done: !!G.restored, at: heaven ? 'heaven' : 'earth'
     });
   },
   slide, openChest, banner(text, dur) { G.bannerQ = { text: wrapText(text, 38), t: dur || 3.4 }; },
   onBump(tx, ty, q) {
     const rm = G.room, p = G.p;
-    if (q === T.SIGN) { if (rm.kind === 'over' && rm.info.signText) say([rm.info.signText]); return; }
+    if (q === T.SIGN) { const st = rm.signText || (rm.info && rm.info.signText); if (rm.kind === 'over' && st) say([st]); return; }
     if (q === T.SEAL) { say([SEAL_TEXT[rm.k - 1]]); Aud.sfx('clink'); return; }
     if (q === T.CRACK) { say(['THE WALL IS CRACKED AND CRUMBLING. A MIGHTY TRUMPET BLAST MIGHT BRING IT DOWN.']); return; }
     if (q === T.DLOCK) {
@@ -42,6 +43,7 @@ const GM = {
   },
   onEntrance(tx, ty) {
     if (G.mode !== 'play' || G.room.kind !== 'over') return;
+    if (G.restored) { G.p.y = (ty + 1) * 16 + 12; G.p.dir = 0; say(HEAVEN_TEXT.sealed); return; } // the dungeons are empty now
     const d = G.room.info.entrance.d;
     owRemember(G.room);
     G.overPos = { idx: G.room.idx, x: tx * 16 + 8, y: (ty + 1) * 16 + 10 };
@@ -50,6 +52,11 @@ const GM = {
   },
   onExit() {
     if (G.mode !== 'play') return;
+    if (G.loc.kind === 'heaven') { // down the stairs to the new earth, back where you climbed up (or to Eden the first time)
+      Aud.sfx('door');
+      startFade(() => { const o = G.overPos || { idx: WORLD.start, x: 128, y: 120 }; G.bannerQ = null; loadOver(o.idx, o.x, o.y); G.save(); });
+      return;
+    }
     const d = G.loc.d;
     startFade(() => { const o = G.overPos || { idx: WORLD.dungeon[d], x: 128, y: 60 }; loadOver(o.idx, o.x, o.y); G.save(); });
   },
@@ -134,6 +141,14 @@ function rewardSpot(room) {
 }
 function populate(room, fromSlide) {
   const p = G.p;
+  if (room.kind === 'heaven') {
+    room.npcs = HEAVEN_NPCS.map((n, i) => Object.assign({ t: i * .37, i: n.kind === 'angel' ? i : 0 }, n));
+    return;
+  }
+  if (room.kind === 'over' && G.restored) { // no more enemies on the new earth
+    if (room.ladder === true) { const r = rewardSpot(room); room.ladder = { x: r.x, y: r.y, t: 0, armed: dist(p.x, p.y, r.x, r.y) > 28 }; }
+    return;
+  }
   if (room.kind === 'over') {
     // enemies only come back once you've been more than one screen away; a quick step out and back keeps them as you left them
     owForgetFar(room.idx);
@@ -197,6 +212,14 @@ function loadOver(idx, px, py) {
   if (!G.seenBiome) G.seenBiome = {};
   if (!G.seenBiome[room.k]) { G.seenBiome[room.k] = true; G.banner(OTH[room.k - 1].name + ' - ' + DUNGEONS[room.k - 1].ref, 3); }
 }
+function enterHeaven() {
+  const room = makeRoom(buildHeavenRoom()), p = G.p;
+  G.loc = { kind: 'heaven' }; G.room = room; G.trans = null;
+  p.x = 128; p.y = 158; p.dir = 1; p.dove = null; p.atk = 0; p.hp = p.max; p.faith = p.maxFaith; p.lastSafe = { x: p.x, y: p.y }; G.entry = { x: p.x, y: p.y };
+  populate(room); Aud.music('ending'); setMode('play'); G.banner('THE THRONE ROOM - REVELATION 4', 3);
+  if (!G.seenHeaven) { G.seenHeaven = true; say(HEAVEN_TEXT.arrive); }
+  G.save();
+}
 function enterDungeon(d) {
   const dn = parseDungeon(d), start = Object.values(dn.cells).find(c => c.start);
   const room = makeRoom(buildDunRoom(G, d, start));
@@ -205,7 +228,7 @@ function enterDungeon(d) {
   G.banner(DUNGEONS[d].name + ' - ' + DUNGEONS[d].ref, 3.4);
 }
 function slide(dir) {
-  if (G.mode !== 'play') return;
+  if (G.mode !== 'play' || G.loc.kind === 'heaven') return;
   let next, nloc;
   if (G.loc.kind === 'over') { const ni = G.room.exits[dir]; if (ni === undefined) return; owRemember(G.room); next = makeRoom(buildOverRoom(ni, G)); nloc = { kind: 'over', idx: ni }; }
   else { const cell = G.room.cell.exits[dir]; if (!cell) return; next = makeRoom(buildDunRoom(G, G.loc.d, cell)); nloc = { kind: 'dun', d: G.loc.d, cell: cell.key }; }
@@ -258,6 +281,7 @@ function newGame() {
   say(INTRO.concat(['A: ATTACK. B: USE ITEM. ITEM: CYCLE ITEM. START: PAUSE. WALK TO THE SCREEN EDGE TO TRAVEL.']));
 }
 function applySave(s) {
+  if (!s || !s.p || !s.ds) { newGame(); return; } // a broken or partial save starts over instead of freezing
   G = freshState(); G.mode = 'play';
   const p = G.p; Object.assign(p, { hp: s.p.hp, max: s.p.max, sword: s.p.sword, items: s.p.items, shield: s.p.shield, armor: s.p.armor, crown: s.p.crown, sel: s.p.sel, blood: !!s.p.blood });
   G.cleared = s.cleared; G.broken = s.broken || {}; G.seen = s.seen || {};
@@ -271,6 +295,11 @@ function applySave(s) {
     G.broken = (s.broken && s.broken[9]) ? { [WORLD.exit[4]]: true } : {}; G.seen = {};
     G.ds.forEach(d => { d.unlocked = {}; d.cleared = {}; d.taken = {}; d.visited = {}; d.keys = 0; });
     loadOver(WORLD.entry[k], 128, 96); return;
+  }
+  if (s.done) { // the Dragon is defeated: the new earth, and the throne room
+    G.restored = true; G.cleared = G.cleared.map(() => true); G.seenHeaven = true;
+    if (s.at === 'earth' && s.ow) { loadOver(s.ow.idx, s.ow.x, s.ow.y); return; }
+    G.overPos = s.at === 'heaven' ? s.ow : null; G.seenHeaven = s.at === 'heaven'; enterHeaven(); return;
   }
   loadOver(s.ow.idx, s.ow.x, s.ow.y);
 }
@@ -288,6 +317,7 @@ function respawn() {
   rearm();
   G.owMemo = {}; // a fresh start after falling
   const p = G.p; p.hp = p.max; p.faith = p.maxFaith; p.inv = 1.5; p.confuse = 0; p.fall = 0; p.kbt = 0; p.dove = null;
+  if (G.loc.kind === 'heaven') { enterHeaven(); return; }
   if (G.loc.kind === 'dun') {
     const d = G.loc.d, dn = parseDungeon(d), start = Object.values(dn.cells).find(c => c.start);
     const room = makeRoom(buildDunRoom(G, d, start)); G.loc = { kind: 'dun', d, cell: start.key }; G.room = room; p.x = 128; p.y = 164; populate(room); Aud.music('d' + (d + 1)); setMode('play');
@@ -313,6 +343,15 @@ function updateRoom(dt) {
   }
   if (rm.cell && rm.cell.mod === 'pinnacle') { rm.windT = (rm.windT || 0) + dt; rm.wind = [Math.sin(rm.windT * .7) > 0 ? 18 : -18, 0]; } // gusts on the pinnacle
   if (rm.kind === 'dun' && rm.shut && !rm.boss && !rm.bossWait && rm.enemies.length === 0) onRoomCleared(rm);
+  if (rm.npcs) for (const n of rm.npcs) {
+    n.t += dt; const dx = p.x - n.x, dy = p.y - n.y, d = Math.hypot(dx, dy);
+    if (d < 13 && d > .01) { p.x = n.x + dx / d * 13; p.y = n.y + dy / d * 13; }
+  }
+  if (rm.ladder && rm.ladder.x !== undefined) {
+    const L = rm.ladder, d = dist(p.x, p.y, L.x, L.y + 6); L.t += dt;
+    if (d > 28) L.armed = true;
+    else if (d < 11 && L.armed && G.mode === 'play') { L.armed = false; G.overPos = { idx: rm.idx, x: L.x, y: L.y + 30 }; Aud.sfx('seal'); say(HEAVEN_TEXT.ladder, () => startFade(() => enterHeaven(), .8)); }
+  }
   // key pickups bookkeeping
   if (rm.beam) { rm.beam.t += dt; if (dist(p.x, p.y, rm.beam.x, rm.beam.y + 8) < 14 && G.mode === 'play') dungeonComplete(); }
   if (G.shake > 0) G.shake -= dt;
@@ -331,7 +370,8 @@ function startBoss() {
   rm.boss = makeBoss(id); rm.bossWait = false; rm.boss.setup(rm); Aud.music(id === 'dragon' ? 'final' : 'boss'); setMode('play');
 }
 function startEnding() {
-  G.ended = true; G.endT = 0; G.endPage = 0; G.save(); Save.write(Object.assign(Save.load() || {}, { done: true }));
+  G.ended = true; G.restored = true; G.cleared = G.cleared.map(() => true); G.overPos = null; G.seenHeaven = false;
+  G.endT = 0; G.endPage = 0; G.save(); // test runs keep G.save a no-op, so they never mark the real save as finished
   setMode('ending'); Aud.music('ending'); Aud.sfx('win'); G.fade = null;
 }
 function update(dt) {
@@ -410,7 +450,7 @@ function updatePause(dt) {
 }
 function updateEnding(dt) {
   G.endT += dt;
-  if (Input.consume('a') && G.endT > 1) { G.endPage++; G.endT = 0; Aud.sfx('select'); if (G.endPage > ENDING.length) toTitle(); }
+  if (Input.consume('a') && G.endT > 1) { G.endPage++; G.endT = 0; Aud.sfx('select'); if (G.endPage > ENDING.length) startFade(() => enterHeaven(), .8); }
 }
 
 /* ---------- rendering ---------- */
@@ -455,10 +495,12 @@ function drawEntities(c, room) {
     for (let i = 0; i < 4; i++) R(c, '#fff', Math.round(b.x - 12 + ((G.t * 40 + i * 20) % 24)), Math.round(190 - ((G.t * 50 + i * 37) % 190)), 2, 2);
     c.drawImage(icon('seal'), Math.round(b.x - 8), Math.round(b.y + 6 + Math.sin(G.t * 4) * 3));
   }
+  if (room.throne) drawThrone(c, room.throne);
+  if (room.ladder && room.ladder.x !== undefined) drawLadder(c, room.ladder);
   drawPickups(c);
-  const list = [...room.enemies];
+  const list = [...room.enemies, ...(room.npcs || [])];
   list.sort((a, b) => a.y - b.y);
-  for (const e of list) drawEnemy(c, e);
+  for (const e of list) if (e.def) drawEnemy(c, e); else drawNpc(c, e);
   if (room.boss && !room.boss.dead) room.boss.draw(c);
   drawPlayer(c);
   for (const o of room.projs) drawProj(c, o);
