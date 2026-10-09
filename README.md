@@ -51,7 +51,7 @@ The overworld is a 10×10 grid of 100 screens. Each of the ten biomes, in biblic
 | 7 | Furnace of Babylon | Daniel 2–3 | **The Great Image** — head of gold to feet of clay, five phases | Shield of Faith (reflects projectiles) |
 | 8 | **The Temptation** | Matthew 4 | **The Tempter** — three trials: Stones, the Pinnacle, the Kingdoms | Sword of the Spirit |
 | 9 | The Empty Tomb | Matthew 28 | **Death** — shrouded in darkness until you seize the light | Armor of Light |
-| 10 | The Abyss | Revelation 12 | **The Dragon** — strips away your weapons; stun each head with the Word of Our Testimony and strike it with the Blood of the Lamb, then ride a white horse against the beast itself (Revelation 12:11, 19:14) | Word of Our Testimony, Blood of the Lamb (Crown of Life after the Dragon) |
+| 10 | The Abyss | Revelation 12 | **The Dragon** — strips away your weapons; stun each head with the Word of Our Testimony and strike it with the Blood of the Lamb (three strikes per head), then ride a white horse against the beast itself (Revelation 12:11, 19:14) | Word of Our Testimony, Blood of the Lamb (Crown of Life after the Dragon) |
 
 Dungeon 8 is built around the three temptations of Jesus: a *Stones* room full of mimics, a windswept *Pinnacle* ringed by a drop, and a *Kingdoms* room of gold that turns on you. The Tempter's attacks follow the same three beats, and orbs he casts can be knocked back with the sword ("It is written!") for triple damage.
 

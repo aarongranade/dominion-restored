@@ -499,21 +499,22 @@ class Death extends Boss {
 }
 
 /* ---- 10. the dragon ---- */
+const HEAD_HITS = 3, BODY_HP = 120; // Blood of the Lamb strikes per head; body health (5 per spray)
 class Dragon extends Boss {
   /* Revelation 12:11: "they overcame him by the blood of the Lamb, and by the word of their testimony".
-     Phase 0: the Dragon strikes and scatters the hero's weapons. Phase 1: seven heads, each needs two
+     Phase 0: the Dragon strikes and scatters the hero's weapons. Phase 1: seven heads, each needs three
      strikes of the Blood of the Lamb, and each strike only lands on a head stunned by the Word.
-     Phase 2: the hero rides a white horse (Rev 19:14); only the Blood hurts the body (60 health). */
+     Phase 2: the hero rides a white horse (Rev 19:14); only the Blood hurts the body (120 health). */
   constructor() {
     super('dragon', 'THE DRAGON', 74); this.phase = 0; this.heads = []; this.bx = 128; this.by = 24; this.st = 0; this.n = 0; this.state = 'idle';
     for (let i = 0; i < 7; i++) this.heads.push({ i, hits: 0, stun: 0, x: 30 + i * 32, y: 62, t: rnd(0, 3), at: rnd(1.5, 4), hf: 0 });
-    this.bhp = 60; this.hint = 0;
+    this.bhp = BODY_HP; this.hint = 0;
   }
   setup() { G.banner('THE DRAGON! SEVEN HEADS AND TEN HORNS!'); }
-  get ratio() { const h = this.heads.reduce((a, q) => a + (2 - q.hits), 0); return (h + (this.phase === 2 ? this.bhp / 60 * 14 : 14)) / 28; }
+  get ratio() { const h = this.heads.reduce((a, q) => a + (HEAD_HITS - q.hits), 0); return (h + (this.phase === 2 ? this.bhp / BODY_HP * 21 : 21)) / 42; }
   rawParts() {
     if (this.phase === 0) return [];
-    if (this.phase === 1) return this.heads.filter(h => h.hits < 2).map(h => ({ x: h.x, y: h.y, hw: 10, hh: 10, vuln: true, id: 'h' + h.i, h }));
+    if (this.phase === 1) return this.heads.filter(h => h.hits < HEAD_HITS).map(h => ({ x: h.x, y: h.y, hw: 10, hh: 10, vuln: true, id: 'h' + h.i, h }));
     return [{ x: this.bx, y: this.by, hw: 30, hh: 20, vuln: true, id: 'body' }];
   }
   hit(part, dmg, src, proj) {
@@ -525,9 +526,9 @@ class Dragon extends Boss {
       if (sid && h.lastSpray === sid) return 'dmg'; h.lastSpray = sid;
       if (h.stun <= 0) { Aud.sfx('clink'); if (!this.hint) { this.hint = 1; G.banner('STUN THE HEAD WITH THE WORD OF YOUR TESTIMONY (B) FIRST!'); } fxText(h.x, h.y - 16, 'STUN IT FIRST', '#f8d838'); return 'block'; }
       h.hits++; h.stun = 0; h.hf = .25; h.at = Math.max(h.at, 1.5); Aud.sfx('boom'); G.shake = .25; fxBurst(h.x, h.y, ['#e83048', '#f8d878', '#fff'], 16, 90, .6, 2);
-      if (h.hits >= 2) {
+      if (h.hits >= HEAD_HITS) {
         fxBurst(h.x, h.y, ['#f83838', '#f8a038', '#fff'], 28, 120, .9, 3); G.shake = .45;
-        if (this.heads.every(q => q.hits >= 2)) {
+        if (this.heads.every(q => q.hits >= HEAD_HITS)) {
           this.phase = 2; this.st = 0; this.state = 'fall'; G.room.projs.length = 0; G.room.hazards.length = 0; G.p.horse = true; Aud.sfx('fanfare');
           say(['THE SEVEN HEADS HAVE FALLEN!', '"AND I SAW HEAVEN OPENED, AND BEHOLD A WHITE HORSE; AND HE THAT SAT UPON HIM WAS CALLED FAITHFUL AND TRUE." (REVELATION 19:11)',
             '"AND THE ARMIES WHICH WERE IN HEAVEN FOLLOWED HIM UPON WHITE HORSES." (REVELATION 19:14)', 'RIDE ON! THE DRAGON DESCENDS. ONLY {THE BLOOD OF THE LAMB} CAN STRIKE HIM NOW.']);
@@ -543,7 +544,7 @@ class Dragon extends Boss {
   }
   ai(dt) {
     if (this.phase === 2) dt *= 1.33; // the final charge: both riders move a third faster
-    const p = ppos(), alive = this.heads.filter(h => h.hits < 2).length; this.st += dt;
+    const p = ppos(), alive = this.heads.filter(h => h.hits < HEAD_HITS).length; this.st += dt;
     if (this.phase === 0) { // the Dragon strikes and the hero's weapons are scattered
       for (const h of this.heads) { h.t += dt; h.x = 30 + h.i * 32 + Math.sin(h.t * 1.3 + h.i) * 8; h.y = 62 + Math.sin(h.t * 1.7 + h.i * 2) * 8 + (h.i % 2) * 6; }
       if (this.st > 1.4) {
@@ -553,14 +554,14 @@ class Dragon extends Boss {
         disarm();
         say(['THE DRAGON\'S TAIL SWEEPS AWAY YOUR SWORD, ARMOR AND TOOLS! ONLY THE SHIELD OF FAITH REMAINS, AND TWO GIFTS HE CANNOT TAKE.',
           '"AND THEY OVERCAME HIM BY {THE BLOOD OF THE LAMB}, AND BY {THE WORD OF THEIR TESTIMONY}." (REVELATION 12:11)',
-          'SPEAK {THE WORD OF YOUR TESTIMONY} (B) TO STUN A HEAD. THEN STRIKE THE STUNNED HEAD WITH {THE BLOOD OF THE LAMB} (A). EACH HEAD FALLS AFTER TWO STRIKES.']);
+          'SPEAK {THE WORD OF YOUR TESTIMONY} (B) TO STUN A HEAD. THEN STRIKE THE STUNNED HEAD WITH {THE BLOOD OF THE LAMB} (A). EACH HEAD FALLS AFTER THREE STRIKES.']);
       }
       this.x = this.bx; this.y = this.by; return;
     }
     if (this.phase === 1) {
       for (const h of this.heads) {
         if (h.hf > 0) h.hf -= dt;
-        if (h.hits >= 2) continue;
+        if (h.hits >= HEAD_HITS) continue;
         if (h.stun > 0) { h.stun -= dt; continue; } // a stunned head hangs still and holds its fire
         h.t += dt; h.x = 30 + h.i * 32 + Math.sin(h.t * 1.3 + h.i) * 8; h.y = 62 + Math.sin(h.t * 1.7 + h.i * 2) * 8 + (h.i % 2) * 6;
         h.at -= dt * (1 + (7 - alive) * .12);
@@ -581,7 +582,7 @@ class Dragon extends Boss {
       if (this.state === 'fall') {
         this.by += (70 - this.by) * dt * 2; if (this.st > 1.4) { this.state = 'chase'; this.st = 0; this.n = 0; G.shake = .6; Aud.sfx('boom'); ring(this.bx, this.by, 14, 80, 'fire', 1); }
       } else if (this.state === 'chase') {
-        const a = Math.atan2(p[1] - this.by, p[0] - this.bx), sp = 22 + (1 - this.bhp / 60) * 18; this.bx += Math.cos(a) * sp * dt; this.by += Math.sin(a) * sp * dt * .5;
+        const a = Math.atan2(p[1] - this.by, p[0] - this.bx), sp = 22 + (1 - this.bhp / BODY_HP) * 18; this.bx += Math.cos(a) * sp * dt; this.by += Math.sin(a) * sp * dt * .5;
         if (this.st > 3) { const r = Math.random(); this.state = r < .4 ? 'breath' : r < .75 ? 'tail' : 'swarm'; this.st = 0; this.n = 0; }
       } else if (this.state === 'breath') {
         if (this.st > .6 && this.n < 12) { this.n++; shootAt(this.bx, this.by + 18, p[0], p[1], 120, 'fire', 1, rnd(-.35, .35)); if (this.n % 3 === 0) Aud.sfx('spit'); this.st -= .05; }
@@ -607,7 +608,7 @@ class Dragon extends Boss {
     if (this.phase === 1) {
       body(128, 14, 1.15);
       for (const h of this.heads) {
-        if (h.hits >= 2) continue;
+        if (h.hits >= HEAD_HITS) continue;
         const x = Math.round(h.x), y = Math.round(h.y), fl = h.hf > 0;
         for (let k = 0; k < 6; k++) { const nx = Math.round(128 + (h.x - 128) * (k / 6) * .5 + (30 + h.i * 32 - 128) * (1 - k / 6) * .5 * 0), ny = Math.round(24 + (h.y - 24) * (k / 6)); disc(c, '#701018', Math.round(30 + h.i * 32 + (h.x - 30 - h.i * 32) * (k / 6)), ny, 4); disc(c, '#a82028', Math.round(30 + h.i * 32 + (h.x - 30 - h.i * 32) * (k / 6)), ny, 3); }
         disc(c, '#501018', x, y, 10); disc(c, fl ? '#fff' : '#c83030', x, y, 9); R(c, fl ? '#fff' : '#e85050', x - 5, y - 6, 4, 3);
@@ -616,7 +617,7 @@ class Dragon extends Boss {
         if (h.stun <= 0 && h.at < .5 && Math.floor(this.t * 20) % 2) disc(c, 'rgba(255,200,60,.7)', x, y + 8, 5);
         if (h.stun > 0) { c.globalAlpha = .45 + .25 * Math.sin(this.t * 12); disc(c, '#fff8d0', x, y, 11); c.globalAlpha = 1; for (let k = 0; k < 3; k++) { const a = this.t * 6 + k * 2.1; R(c, '#f8d838', Math.round(x + Math.cos(a) * 12), Math.round(y - 12 + Math.sin(a) * 3), 2, 2); } }
         // hp pips
-        for (let k = 0; k < 2; k++) R(c, k < 2 - h.hits ? '#f83838' : '#301010', x - 3 + k * 4, y + 12, 3, 2);
+        for (let k = 0; k < HEAD_HITS; k++) R(c, k < HEAD_HITS - h.hits ? '#f83838' : '#301010', x - 5 + k * 4, y + 12, 3, 2);
       }
     } else {
       const x = Math.round(this.bx), y = Math.round(this.by);
