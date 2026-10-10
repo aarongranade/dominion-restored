@@ -24,7 +24,7 @@ public partial class MainPage : ContentPage
 
     void OnWebViewInitializing(object? sender, BlazorWebViewInitializingEventArgs e)
     {
-#if IOS
+#if IOS || MACCATALYST
         // let WebAudio and media play inline without extra gestures
         e.Configuration.AllowsInlineMediaPlayback = true;
         e.Configuration.MediaTypesRequiringUserActionForPlayback = WebKit.WKAudiovisualMediaTypes.None;
@@ -43,12 +43,21 @@ public partial class MainPage : ContentPage
         e.WebView.HapticFeedbackEnabled = false;
         e.WebView.LongClickable = false;
         e.WebView.SetOnLongClickListener(new NoLongClick());
-#elif IOS
+#elif IOS || MACCATALYST
         e.WebView.ScrollView.ScrollEnabled = false;
         e.WebView.ScrollView.Bounces = false;
         e.WebView.ScrollView.ContentInsetAdjustmentBehavior = UIKit.UIScrollViewContentInsetAdjustmentBehavior.Never;
         e.WebView.Opaque = false;
         e.WebView.BackgroundColor = UIKit.UIColor.FromRGB(0x0B, 0x0B, 0x14);
+#elif WINDOWS
+        // WebView2: no zooming and no browser right-click menu over the game
+        var settings = e.WebView.CoreWebView2.Settings;
+        settings.IsZoomControlEnabled = false;
+        settings.IsPinchZoomEnabled = false;
+        settings.AreDefaultContextMenusEnabled = false;
+#if !DEBUG
+        settings.AreBrowserAcceleratorKeysEnabled = false; // no Ctrl+R / F5 reloading mid-game (kept in Debug for F12 tools)
+#endif
 #endif
     }
 

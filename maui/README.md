@@ -1,4 +1,4 @@
-# Dominion Restored: iOS and Android app (.NET MAUI Blazor Hybrid)
+# Dominion Restored: iOS, Android, Windows and Mac app (.NET MAUI Blazor Hybrid)
 
 A thin native shell around the web game. `DominionRestored/` is a .NET 10 MAUI Blazor Hybrid app whose only page is a full-screen `BlazorWebView` showing the game in a frame. The game code stays in the repo root; `scripts/sync-game.sh` copies it into `DominionRestored/wwwroot/game/`.
 
@@ -18,11 +18,15 @@ Requirements: .NET 10 SDK, then `dotnet workload install maui`. Android needs JD
 ./maui/scripts/sync-game.sh      # after any change to the game (sync-game.ps1 on Windows)
 dotnet build maui/DominionRestored -t:Run -f net10.0-android
 dotnet build maui/DominionRestored -t:Run -f net10.0-ios          # Mac only
+dotnet build maui/DominionRestored -t:Run -f net10.0-maccatalyst  # Mac only
+dotnet build maui/DominionRestored -t:Run -f net10.0-windows10.0.19041.0  # Windows only
 ```
 
-**Visual Studio:** open `maui/DominionRestored.slnx` (Visual Studio 2022 17.13 or later, or Visual Studio 2026, with the .NET MAUI workload). Pick an Android emulator or device in the run target list and press F5. iOS needs a paired Mac. The game copy in `wwwroot/game/` is committed, so it builds straight away; run `scripts/sync-game.ps1` after changing the game.
+On Windows and Mac the game opens in a 900x860 window. With a mouse and a wide window the on-screen controls hide and the keyboard plays (arrows/WASD, Z attack, X item, C cycle, Enter pause). Windows runs unpackaged, so it needs no signing certificate; packaging for the Microsoft Store (MSIX) is a later step. The Mac app is sandboxed with no other entitlements.
 
-GitHub Actions (`.github/workflows/maui.yml`) checks the bundled game is in sync, builds an installable Android APK (download it from the run's artifacts), and builds for the iOS simulator.
+**Visual Studio:** open `maui/DominionRestored.slnx` (Visual Studio 2022 17.13 or later, or Visual Studio 2026, with the .NET MAUI workload). Pick **Windows Machine**, an Android emulator or a device in the run target list and press F5. iOS needs a paired Mac. The game copy in `wwwroot/game/` is committed, so it builds straight away; run `scripts/sync-game.ps1` after changing the game.
+
+GitHub Actions (`.github/workflows/maui.yml`) checks the bundled game is in sync, builds an installable Android APK (download it from the run's artifacts), builds for the iOS simulator, Windows and Mac Catalyst.
 
 ## Before publishing to the stores
 1. **App ID**: `com.aarongranade.dominionrestored` is set in `DominionRestored.csproj`. Change it now if you want a different one; it cannot change after the first upload.

@@ -25,6 +25,8 @@
         };
         // keep hardware keyboards (iPad, Chromebook) talking to the game
         document.addEventListener('click', function () { var f = document.getElementById('game'); if (f) f.focus(); });
+        // on Windows and Mac the keyboard should work straight away, before any click
+        document.addEventListener('load', function (e) { if (e.target && e.target.id === 'game') e.target.focus(); }, true);
     </script>
     <script src="_framework/blazor.webview.js" autostart="false"></script>
 </body>

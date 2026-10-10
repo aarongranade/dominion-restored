@@ -16,6 +16,11 @@ public partial class App : Application
         window.Stopped += (_, _) => page.SendToGame("pause");
         window.Resumed += (_, _) => { DeviceDisplay.Current.KeepScreenOn = true; page.SendToGame("resume"); };
         window.Created += (_, _) => DeviceDisplay.Current.KeepScreenOn = true;
+#if WINDOWS || MACCATALYST
+        // desktop: open at a comfortable size (the game keeps its 8:7 shape and letterboxes)
+        window.Width = 900; window.Height = 860;
+        window.MinimumWidth = 420; window.MinimumHeight = 400;
+#endif
         return window;
     }
 }
