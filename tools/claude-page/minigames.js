@@ -397,6 +397,7 @@ class NoahArk {
   startSummon() {
     startFade(() => {
       this.phase = 'summon'; this.buildBoard(); Aud.music('o2');
+      setMode('play'); // back to play before the text, so closing it returns to the board (not to a finished fade)
       say(['"OF EVERY CLEAN BEAST THOU SHALT TAKE TO THEE BY SEVENS... OF BEASTS THAT ARE NOT CLEAN BY TWO." (GENESIS 7:2)',
         'MATCH THE PAIRS TO BRING THEM ABOARD BEFORE THE SEVEN DAYS ARE SPENT (GENESIS 7:4). A MISS COSTS TIME!']);
     }, .8);
@@ -766,6 +767,7 @@ class JobRun {
 (function () {
   const baseUpdate = update, baseRender = render, baseEntrance = GM.onEntrance;
   update = function (dt) {
+    if (G.mini && G.mode === 'fade' && !G.fade) setMode('play'); // safety net: never get stuck in a fade that has ended
     if (!G.mini || G.mode !== 'play') return baseUpdate(dt);
     G.t += dt; Input.poll();
     if (Input.consume('mute')) Aud.setMuted(!Aud.muted);
