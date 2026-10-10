@@ -188,7 +188,7 @@ function newPlayer() {
   return {
     isPlayer: true, x: 128, y: 96, hw: 5, hh: 4, oy: 4, dir: 0, anim: 0, hp: 6, max: 6, faith: 10, maxFaith: 10, sword: 0,
     items: {}, shield: false, armor: false, crown: false, sel: null, inv: 0, cool: 0, atk: 0, hitSet: null, confuse: 0, fall: 0, kbt: 0, kbx: 0, kby: 0,
-    dove: null, regen: 0, lastSafe: { x: 128, y: 96 }, bump: 0, moving: false
+    dove: null, regen: 0, lastSafe: { x: 128, y: 96 }, bump: 0, moving: false, look: HeroLook.get()
   };
 }
 function ownedActive() { return ACTIVE_ITEMS.filter(i => G.p.items[i]); }
@@ -461,7 +461,7 @@ function drawLadder(c, L) {
 function drawPlayer(c) {
   const p = G.p; if (p.fall > 0) { const s = p.fall / .7; c.save(); c.translate(Math.round(p.x), Math.round(p.y + 4)); c.scale(s, s); c.drawImage(playerSprite(p.dir, 0), -8, -12); c.restore(); return; }
   const fr = p.moving ? (Math.floor(p.anim * 8) % 2) : 0;
-  let img = playerSprite(p.dir, fr, p.armor ? { o: '#181018', a: '#e8f0ff', b: '#a05820', c: '#f8b878' } : null);
+  let img = playerSprite(p.dir, fr, p.armor ? { a: '#e8f0ff' } : null);
   if (p.inv > 0 && Math.floor(p.inv * 20) % 2 === 0 && p.kbt <= 0) return drawSwordFx(c);
   if (p.dir === 1) drawSwordFx(c);
   if (p.horse) { drawHorse(c, p); c.drawImage(img, Math.round(p.x - 8), Math.round(p.y - 14)); } else
