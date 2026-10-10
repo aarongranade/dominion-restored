@@ -25,15 +25,19 @@
     o.splice(o.length - 1, 0, ['tests', 'TESTS']); // just above OPTIONS
     return o;
   };
+  // TESTS shows three tests per page; MORE turns to the next page (and back to the first from the last)
+  const PER = 3, pages = () => Math.ceil(TESTS().length / PER), pageTests = () => TESTS().slice((G.testsPage || 0) * PER, (G.testsPage || 0) * PER + PER);
   optionList = function () {
     if (!G.testsBox) return baseList();
-    return TESTS().map(t => [t[0], t[1], t[2]]).concat([['back', 'BACK']]);
+    const rows = pageTests().map(t => [t[0], t[1], t[2]]);
+    if (pages() > 1) rows.push(['more', 'MORE > (PAGE ' + ((G.testsPage || 0) + 1) + '/' + pages() + ')']);
+    return rows.concat([['back', 'BACK']]);
   };
   updateTitle = function (dt) {
     const opt = titleOptions()[G.menu];
     if (!G.titleSub && opt && opt[0] === 'tests' && (Input.consume('a') || Input.consume('start'))) {
       Aud.init(); Aud.resume(); Aud.sfx('confirm');
-      G.titleSub = true; G.testsBox = true; G.boxTitle = 'TESTS'; G.optMenu = 0; Input.clear(); return;
+      G.titleSub = true; G.testsBox = true; G.testsPage = 0; G.boxTitle = 'TESTS'; G.optMenu = 0; Input.clear(); return;
     }
     baseUpdate(dt);
   };
@@ -43,7 +47,8 @@
     if (Input.consume('mup')) { G.optMenu = (G.optMenu + n - 1) % n; Aud.sfx('select'); }
     if (Input.consume('mdown')) { G.optMenu = (G.optMenu + 1) % n; Aud.sfx('select'); }
     if (Input.consume('b') || Input.consume('start')) { close(); return; }
-    const t = TESTS()[G.optMenu];
+    const id = list[G.optMenu][0], t = pageTests()[G.optMenu];
+    if (id === 'more') { if (Input.consume('a') || Input.consume('mright')) { G.testsPage = ((G.testsPage || 0) + 1) % pages(); G.optMenu = pageTests().length; Aud.sfx('select'); } return; } // the cursor stays on MORE
     if (t && t[2]) {
       if (Input.consume('mleft')) { testD = (testD + 9) % 10; Aud.sfx('select'); }
       if (Input.consume('mright')) { testD = (testD + 1) % 10; Aud.sfx('select'); }
