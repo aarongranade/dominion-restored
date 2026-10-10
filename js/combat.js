@@ -327,7 +327,10 @@ function updatePlayer(dt) {
   if (p.faith < p.maxFaith) { p.regen += dt; if (p.regen >= (p.crown ? 1.4 : 2.8)) { p.regen = 0; p.faith++; } } else p.regen = 0;
   if (p.fall > 0) {
     p.fall -= dt;
-    if (p.fall <= 0) { p.x = p.lastSafe.x; p.y = p.lastSafe.y; p.inv = 0; hurtPlayer(1, p.x, p.y + 20, {}); p.inv = 1.2; }
+    if (p.fall <= 0) {
+      // back on the last safe ground, with no knockback: being shoved could send the hero straight back into the hole
+      p.x = p.lastSafe.x; p.y = p.lastSafe.y; unstick(p); p.inv = 0; hurtPlayer(1, p.x, p.y, {}); p.kbt = 0; p.inv = 1.2;
+    }
     return;
   }
   let mx = Input.dx, my = Input.dy; if (p.confuse > 0) { mx = -mx; my = -my; }
