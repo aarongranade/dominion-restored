@@ -14,7 +14,8 @@
     ['testboss', 'BOSS ' + pick(), true, () => startTest(testD, true)],
     ['testdun', 'DUNGEON ' + pick(), true, () => startTest(testD, false)],
     ['testheaven', 'THRONE ROOM', false, () => startHeaven()],
-    // mini-games go here, e.g. ['testmini1', 'MINI-GAME: JERICHO', false, () => startMiniGame(4)],
+    ['testmini1', 'MINI-GAME: FLEEING EDEN', false, () => startMini(0)],
+    // each new mini-game gets a line here (see CLAUDE.md)
   ];
 
   titleOptions = function () {
@@ -82,7 +83,20 @@
     G.overPos = null; G.seenHeaven = false;
     enterHeaven();
   }
+  // a mini-game as the player meets it: that dungeon beaten, standing at its entrance on the overworld
+  function startMini(d) {
+    testState({ mini: d });
+    const p = G.p, give = ['flame', 'dove', 'bow', 'rod', 'shofar', 'sling', 'shield', 'spirit', 'armor'];
+    p.max = 8 + 2 * d; p.hp = p.max;
+    for (let i = 0; i <= d && i < give.length; i++) { const it = give[i]; if (it === 'flame') p.sword = 1; else if (it === 'spirit') p.sword = 2; else if (it === 'shield') p.shield = true; else if (it === 'armor') p.armor = true; else p.items[it] = true; }
+    p.sel = ACTIVE_ITEMS.find(i => p.items[i]) || null;
+    for (let i = 0; i <= d; i++) { G.cleared[i] = true; G.ds[i].boss = true; G.ds[i].item = true; G.ds[i].heart = true; }
+    G.overPos = { idx: WORLD.dungeon[d], x: 128, y: 60 };
+    loadOver(WORLD.dungeon[d], 128, 60); G.bannerQ = null;
+    MINI.start(d);
+  }
   respawn = function () {
+    if (G.test && G.test.mini !== undefined) { startMini(G.test.mini); return; }
     if (G.test && G.test.heaven) { startHeaven(); return; }
     if (G.test) { startTest(G.test.d, G.test.boss); return; }
     baseRespawn();

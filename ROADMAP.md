@@ -23,6 +23,9 @@ Notes for whoever builds it:
 - The amusement park "after the throne" fits the new earth and throne room that come after the Dragon (`enterHeaven` in `js/game.js`).
 - Add every mini-game to the Claude page's **TESTS** box (`TESTS()` in `tools/claude-page/test-menu.js`) so it can be played directly. See `CLAUDE.md`.
 
+**Built so far (Claude page only, in `tools/claude-page/minigames.js`):**
+- **Dungeon 1, Eden: Fleeing the Garden.** A vertical scroller. Adam and Eve, in fig-leaf aprons, run from the angel with the flaming sword, dodging thorns, trees, serpents, lions and boars for two minutes. Three hits and the angel catches them, and the run restarts from the last checkpoint (every 30 seconds). At the end a cutscene shows the angel blocking the east gate (Genesis 3:24).
+
 ## Other ideas discussed
 
 - **First-person mode:** an old-school first-person view, like Doom, built on the existing 3D view (`js/render3d.js`) as a third VIEW option. A first playable version is about 2–3 sessions; polished with bosses rebalanced is about 6–10.
