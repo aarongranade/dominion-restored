@@ -1,5 +1,5 @@
-/* Claude-page-only mini-games (see ROADMAP.md: one per dungeon, played in a circus tent that goes up near a
-   beaten dungeon, on the next screen over). Not part of the real game or the app yet: tools/claude-page/build.py appends this file to
+/* Claude-page-only mini-games (see ROADMAP.md: one per dungeon, played in a circus tent on the screen next to
+   its dungeon, open from the start). Not part of the real game or the app yet: tools/claude-page/build.py appends this file to
    the Claude page build only, before test-menu.js.
    While G.mini is set and the mode is 'play', the mini-game runs the update and draws the whole screen;
    dialogs, the pause menu and fades still use the game's own code. */
@@ -791,8 +791,9 @@ class JobRun {
     if (G.mode === 'pause') drawPause(c);
     drawFade(c);
   };
-  /* the circus tent: once a dungeon is beaten, a tent goes up on a screen next to the dungeon's screen in
-     the same land, and walking into the tent's door plays that dungeon's mini-game */
+  /* the circus tent: each dungeon with a mini-game has a tent on a screen next to the dungeon's screen in
+     the same land, open whether or not the dungeon is beaten (some stories, like Noah's, come before the
+     dungeon and some after), and walking into the tent's door plays that dungeon's mini-game */
   const OPEN = new Set([T.FLOOR, T.PATH, T.DECO, T.LAND]);
   // the tent's screen: next to the dungeon's screen in the same land, but never the land's first screen
   // (spring, sign, ladder), its gate screen or the dungeon screen itself
@@ -813,7 +814,7 @@ class JobRun {
   };
   function placeTent(room) {
     let d = -1; for (const k of Object.keys(MINI.games)) if (MINI.tentScreen(+k) === room.idx) d = +k;
-    if (d < 0 || !G.cleared[d]) return;
+    if (d < 0) return;
     const t = room.tiles, open = (x, y) => x >= 1 && x <= 14 && y >= 1 && y <= 10 && OPEN.has(t[y * 16 + x]);
     // only ground the hero can walk to from the screen's exits counts
     const walk = (x, y) => x >= 0 && x <= 15 && y >= 0 && y <= 11 && !SOLID.has(t[y * 16 + x]) && t[y * 16 + x] !== T.PIT && t[y * 16 + x] !== T.FIRE;
@@ -831,7 +832,7 @@ class JobRun {
     const [tx, ty] = best;
     room.tent = { d, x: tx * 16, y: ty * 16, door: { x: tx * 16 + 16, y: (ty + 1) * 16 + 4 }, armed: false };
     if (!G.tentSeen) G.tentSeen = {};
-    if (!G.tentSeen[d]) { G.tentSeen[d] = true; G.banner('A CIRCUS TENT HAS GONE UP!', 2.4); }
+    if (!G.tentSeen[d]) { G.tentSeen[d] = true; G.banner('A CIRCUS TENT!', 2.4); }
   }
   function drawTent(c, tn) {
     const x = tn.x, y = tn.y, fl = Math.floor(G.t * 4) % 2;
