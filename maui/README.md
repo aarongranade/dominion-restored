@@ -20,6 +20,8 @@ dotnet build maui/DominionRestored -t:Run -f net10.0-android
 dotnet build maui/DominionRestored -t:Run -f net10.0-ios          # Mac only
 ```
 
+**Visual Studio:** open `maui/DominionRestored.slnx` (Visual Studio 2022 17.13 or later, or Visual Studio 2026, with the .NET MAUI workload). Pick an Android emulator or device in the run target list and press F5. iOS needs a paired Mac. The game copy in `wwwroot/game/` is committed, so it builds straight away; run `scripts/sync-game.ps1` after changing the game.
+
 GitHub Actions (`.github/workflows/maui.yml`) checks the bundled game is in sync, builds an installable Android APK (download it from the run's artifacts), and builds for the iOS simulator.
 
 ## Before publishing to the stores
