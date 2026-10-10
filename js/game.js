@@ -416,16 +416,21 @@ function toTitle() { G = freshState(); G.mode = 'title'; G.menu = 0; Aud.music('
 
 /* ---------- title / pause / ending ---------- */
 /* title menu entries */
-const MENU_Y = 150, menuDY = () => titleOptions().length > 4 ? 11 : 13;
+const menuY = () => titleOptions().length > 6 ? 138 : 150, menuDY = () => { const n = titleOptions().length; return n > 6 ? 10 : n > 4 ? 11 : 13; };
 function titleOptions() {
   const o = Save.has() ? [['continue', 'CONTINUE']] : [];
-  o.push(['new', 'NEW GAME'], ['sound', 'SOUND: ' + (Aud.muted ? 'OFF' : 'ON')]);
+  o.push(['new', 'NEW GAME'], ['look', 'HERO: < ' + (HeroLook.get() + 1) + ' OF ' + HERO_LOOKS.length + ' >'], ['sound', 'SOUND: ' + (Aud.muted ? 'OFF' : 'ON')]);
   return o;
 }
 function updateTitle(dt) {
   const opts = titleOptions().length;
   if (Input.consume('mup')) { G.menu = (G.menu + opts - 1) % opts; Aud.sfx('select'); }
   if (Input.consume('mdown')) { G.menu = (G.menu + 1) % opts; Aud.sfx('select'); }
+  const cur = titleOptions()[G.menu];
+  if (cur && cur[0] === 'look') { // left/right (or A) picks how the hero looks
+    const n = HERO_LOOKS.length, step = Input.consume('mleft') ? -1 : Input.consume('mright') || Input.consume('a') ? 1 : 0;
+    if (step) { HeroLook.set((HeroLook.get() + step + n) % n); G.p.look = HeroLook.get(); Aud.init(); Aud.sfx('select'); return; }
+  }
   if (Input.consume('a') || Input.consume('start')) {
     Aud.init(); Aud.resume(); Aud.sfx('confirm');
     const sel = titleOptions()[G.menu][0];
@@ -600,13 +605,15 @@ function drawTitle(c) {
   R(c, '#4a2a10', 36, 100, 8, 70); R(c, '#6a3a18', 36, 100, 3, 70); disc(c, '#206020', 40, 90, 22); disc(c, '#38a038', 38, 86, 16); R(c, '#f83838', 28, 90, 3, 3); R(c, '#f83838', 48, 84, 3, 3); R(c, '#f83838', 40, 99, 3, 3);
   for (let i = 0; i < 24; i++) { const y = 168 - i * 2.8, x = 40 + Math.sin(i * .6 + G.t * 2) * 8; disc(c, '#58c848', Math.round(x), Math.round(y), 2); }
   disc(c, '#58c848', 40 + Math.round(Math.sin(24 * .6 + G.t * 2) * 8), 100, 3); R(c, '#f83838', 41 + Math.round(Math.sin(24 * .6 + G.t * 2) * 8), 98, 1, 1);
-  // hero silhouette
-  R(c, '#08080e', 196, 140, 8, 14); R(c, '#08080e', 194, 154, 12, 10); R(c, '#08080e', 205, 128, 2, 22); R(c, '#f8f8c8', 205, 124, 2, 6); R(c, '#08080e', 197, 134, 3, 4);
+  // the hero, as chosen on the HERO line, standing on the hill with the staff
+  { const lk = HeroLook.get(), img = playerSprite(0, Math.floor(G.t * 2) % 2 && titleOptions()[G.menu] && titleOptions()[G.menu][0] === 'look' ? 1 : 0, null, lk);
+    c.save(); c.translate(184, 128); c.scale(2, 2); c.drawImage(img, 0, 0); c.restore();
+    R(c, '#4a2a10', 214, 124, 2, 36); R(c, '#f8f8c8', 214, 120, 2, 5); }
   // title
   textBig(c, 'DOMINION', 128, 14, '#f8d838', '#701818', 4); textBig(c, 'RESTORED', 128, 50, '#fcfcfc', '#2a2a80', 4);
   textC(c, 'FROM EDEN TO REVELATION', 128, 88, '#f8e8a0');
-  titleOptions().forEach(([, l], i) => { const y = MENU_Y + i * menuDY(), bw = Math.max(136, textW(l) + 24); R(c, 'rgba(0,0,0,.55)', 128 - bw / 2, y - 2, bw, 11); textC(c, (G.menu === i && Math.floor(G.t * 3) % 2 === 0 ? '> ' : G.menu === i ? '> ' : '  ') + l, 128, y, G.menu === i ? '#f8d838' : '#c8c8d8'); });
-  textC(c, 'TAP OR PRESS A', 128, 208, '#a0a0c0'); text(c, 'V1.0', 226, 214, '#707090');
+  titleOptions().forEach(([, l], i) => { const y = menuY() + i * menuDY(), bw = Math.max(136, textW(l) + 24); R(c, 'rgba(0,0,0,.55)', 128 - bw / 2, y - 2, bw, 11); textC(c, (G.menu === i && Math.floor(G.t * 3) % 2 === 0 ? '> ' : G.menu === i ? '> ' : '  ') + l, 128, y, G.menu === i ? '#f8d838' : '#c8c8d8'); });
+  if (titleOptions().length <= 6) textC(c, 'TAP OR PRESS A', 128, 208, '#a0a0c0'); text(c, 'V1.0', 226, 214, '#707090');
 }
 function drawPause(c) {
   c.globalAlpha = .88; R(c, '#000', 0, 0, W, H); c.globalAlpha = 1;
@@ -706,7 +713,7 @@ function boot() {
     Aud.init(); Aud.resume();
     const m = G.mode; if (m === 'title') {
       const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * H, n = titleOptions().length;
-      for (let i = 0; i < n; i++) { const yy = MENU_Y + i * menuDY(); if (y >= yy - 5 && y <= yy + 11) { G.menu = i; Input.press.a = true; return; } }
+      for (let i = 0; i < n; i++) { const yy = menuY() + i * menuDY(); if (y >= yy - 5 && y <= yy + 11) { G.menu = i; Input.press.a = true; return; } }
       Input.press.a = true;
     } else if (m === 'dialog' || m === 'gameover' || m === 'ending') Input.press.a = true;
     else if (m === 'pause') { const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * H; for (let i = 0; i < 4; i++) { const yy = 158 + i * 11; if (y >= yy - 3 && y <= yy + 8) { G.menu = i; Input.press.a = true; return; } } }

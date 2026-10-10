@@ -107,15 +107,34 @@ function sprite(shape, pal, frame, legs) {
   return _spr[key] = bakeRows(rows, pal, true, frame, legs === undefined ? (shape === 'human' || shape === 'beast' ? 3 : 0) : legs);
 }
 const PLAYER_PAL = { o: '#181018', a: '#4a7cf0', b: '#a05820', c: '#f8b878' };
-function playerSprite(dir, frame, pal) {
-  pal = pal || PLAYER_PAL;
-  const key = 'P' + dir + frame + pal.a;
+/* the hero's looks, picked on the title screen: tunic (a), hair (b), skin (c), and short or long hair */
+const HERO_LOOKS = [
+  { pal: PLAYER_PAL, long: false },
+  { pal: { o: '#181018', a: '#d04848', b: '#3a2418', c: '#c88858' }, long: true },
+  { pal: { o: '#181018', a: '#3a9a48', b: '#e8c048', c: '#f8c8a0' }, long: true },
+  { pal: { o: '#181018', a: '#8858c8', b: '#201418', c: '#8a5a38' }, long: false },
+];
+const HeroLook = {
+  key: 'dominion-restored-look',
+  get() { try { const v = +localStorage.getItem(this.key); return v >= 0 && v < HERO_LOOKS.length ? v : 0; } catch (e) { return 0; } },
+  set(v) { try { localStorage.setItem(this.key, String(v)); } catch (e) { } },
+};
+// long hair frames the face, falls over the shoulders and down the back
+const withRows = (rows, rep) => rows.map((r, i) => rep[i] || r);
+const PLAYER_DOWN_LONG = withRows(PLAYER_DOWN, { 4: '.1334444', 5: '.1344644', 6: '.1344444', 7: '.1334444', 8: '.1332222', 9: '.1332222' });
+const PLAYER_UP_LONG = withRows(PLAYER_UP, { 4: '.1333333', 5: '.1333333', 6: '.1333333', 7: '.1333333', 8: '.1333333', 9: '.1323333', 10: '.1422333' });
+const PLAYER_SIDE_LONG = PLAYER_SIDE.map(f => withRows(f, { 6: '...1333344441...', 7: '...1333114411...', 8: '...133322221....', 9: '...1332222221...' }));
+function playerSprite(dir, frame, pal, look) {
+  if (look === undefined) look = (typeof G !== 'undefined' && G.p && G.p.look) || 0;
+  const L = HERO_LOOKS[look] || HERO_LOOKS[0];
+  pal = Object.assign({}, L.pal, pal || {}); // e.g. the Armor of Light only changes the tunic
+  const key = 'P' + dir + frame + pal.a + pal.b + pal.c + (L.long ? 'L' : '');
   if (_spr[key]) return _spr[key];
   let cv;
-  if (dir === 0) cv = bakeRows(PLAYER_DOWN, pal, true, frame, 3);
-  else if (dir === 1) cv = bakeRows(PLAYER_UP, pal, true, frame, 3);
+  if (dir === 0) cv = bakeRows(L.long ? PLAYER_DOWN_LONG : PLAYER_DOWN, pal, true, frame, 3);
+  else if (dir === 1) cv = bakeRows(L.long ? PLAYER_UP_LONG : PLAYER_UP, pal, true, frame, 3);
   else {
-    cv = bakeRows(PLAYER_SIDE[frame].concat([]), pal, false, 0, 0);
+    cv = bakeRows((L.long ? PLAYER_SIDE_LONG : PLAYER_SIDE)[frame].concat([]), pal, false, 0, 0);
     if (dir === 2) { const f = mk(16, 16), c = f.getContext('2d'); c.translate(16, 0); c.scale(-1, 1); c.drawImage(cv, 0, 0); cv = f; }
   }
   return _spr[key] = cv;

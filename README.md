@@ -27,6 +27,8 @@ To host it for your phone, turn on **GitHub Pages** (Settings → Pages → *Dep
 | Pause / menu | **START** | Enter / P / Esc |
 | Mute | | M |
 
+Pick how the hero looks on the title screen (**HERO: < 1 OF 4 >**, left/right or A to change): four looks with different hair, skin and tunic. The choice is remembered.
+
 Portrait phones show the game on top and controls below; landscape phones get a full-screen game with floating controls. Progress is saved automatically (screen changes, items, bosses).
 
 ## The world
