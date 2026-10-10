@@ -1,18 +1,58 @@
 /* Claude-page-only playtest menu. Not part of the web game or the app: tools/claude-page/build.py
    appends this to the single-file build published as the Claude page.
-   Adds two title-menu entries: TEST BOSS and TEST DUNGEON. Left/right picks the dungeon, A starts it.
+   Adds a TESTS line to the title screen. It opens a box (like OPTIONS) listing every test:
+   BOSS and DUNGEON (left/right picks the dungeon, A starts it), THRONE ROOM, and one line per
+   mini-game once they exist (add each new mini-game to TESTS below).
    Test runs never write the real save, and TRY AGAIN restarts the same test. */
 (function () {
   let testD = 0;
-  const baseOptions = titleOptions, baseUpdate = updateTitle, baseRespawn = respawn;
-  const pickName = () => '< ' + (testD + 1) + ' ' + SHORT[testD] + ' >';
+  const baseOptions = titleOptions, baseUpdate = updateTitle, baseRespawn = respawn, baseList = optionList, baseUpdateOptions = updateOptions;
+  const pick = () => '< ' + (testD + 1) + ' ' + SHORT[testD] + ' >';
+
+  // every test in the TESTS box: [id, label, cycles through dungeons, start]
+  const TESTS = () => [
+    ['testboss', 'BOSS ' + pick(), true, () => startTest(testD, true)],
+    ['testdun', 'DUNGEON ' + pick(), true, () => startTest(testD, false)],
+    ['testheaven', 'THRONE ROOM', false, () => startHeaven()],
+    // mini-games go here, e.g. ['testmini1', 'MINI-GAME: JERICHO', false, () => startMiniGame(4)],
+  ];
+
   titleOptions = function () {
     const o = baseOptions();
-    o.splice(o.length - 1, 0, ['testboss', 'TEST BOSS ' + pickName()], ['testdun', 'TEST DUNGEON ' + pickName()]);
+    o.splice(o.length - 1, 0, ['tests', 'TESTS']); // just above OPTIONS
     return o;
   };
+  optionList = function () {
+    if (!G.testsBox) return baseList();
+    return TESTS().map(t => [t[0], t[1], t[2]]).concat([['back', 'BACK']]);
+  };
+  updateTitle = function (dt) {
+    const opt = titleOptions()[G.menu];
+    if (!G.titleSub && opt && opt[0] === 'tests' && (Input.consume('a') || Input.consume('start'))) {
+      Aud.init(); Aud.resume(); Aud.sfx('confirm');
+      G.titleSub = true; G.testsBox = true; G.boxTitle = 'TESTS'; G.optMenu = 0; Input.clear(); return;
+    }
+    baseUpdate(dt);
+  };
+  updateOptions = function () {
+    if (!G.testsBox) { baseUpdateOptions(); return; }
+    const list = optionList(), n = list.length, close = () => { G.titleSub = false; G.testsBox = false; G.boxTitle = null; Aud.sfx('select'); Input.clear(); };
+    if (Input.consume('mup')) { G.optMenu = (G.optMenu + n - 1) % n; Aud.sfx('select'); }
+    if (Input.consume('mdown')) { G.optMenu = (G.optMenu + 1) % n; Aud.sfx('select'); }
+    if (Input.consume('b') || Input.consume('start')) { close(); return; }
+    const t = TESTS()[G.optMenu];
+    if (t && t[2]) {
+      if (Input.consume('mleft')) { testD = (testD + 9) % 10; Aud.sfx('select'); }
+      if (Input.consume('mright')) { testD = (testD + 1) % 10; Aud.sfx('select'); }
+    }
+    if (Input.consume('a')) { if (!t) { close(); return; } Aud.init(); Aud.resume(); Aud.sfx('confirm'); t[3](); }
+  };
+
+  function testState(test) {
+    G = freshState(); G.mode = 'play'; G.test = test; G.save = function () { };
+  }
   function startTest(d, boss) {
-    G = freshState(); G.mode = 'play'; G.test = { d, boss }; G.save = function () { };
+    testState({ d, boss });
     const p = G.p; p.max = 6 + 2 * d; p.hp = p.max;
     const give = ['flame', 'dove', 'bow', 'rod', 'shofar', 'sling', 'shield', 'spirit', 'armor'];
     // gear from every earlier dungeon, plus this dungeon's treasure when jumping to its boss
@@ -33,25 +73,18 @@
       populate(G.room);
     }
   }
-  updateTitle = function (dt) {
-    const opt = titleOptions()[G.menu];
-    if (!G.titleSub && opt && opt[0].startsWith('test')) {
-      if (Input.consume('mleft')) { testD = (testD + 9) % 10; Aud.sfx('select'); }
-      if (Input.consume('mright')) { testD = (testD + 1) % 10; Aud.sfx('select'); }
-      if (Input.consume('a') || Input.consume('start')) { Aud.init(); Aud.resume(); Aud.sfx('confirm'); startTest(testD, opt[0] === 'testboss'); return; }
-    }
-    baseUpdate(dt);
+  // the throne room as it is after the Dragon: every seal broken, all gear and the Crown of Life
+  function startHeaven() {
+    testState({ heaven: true });
+    const p = G.p; p.max = 26; p.hp = p.max; p.sword = 2; p.shield = true; p.armor = true; p.crown = true; p.blood = true;
+    for (const id of ACTIVE_ITEMS) p.items[id] = true; p.sel = ACTIVE_ITEMS[0];
+    G.restored = true; G.cleared = G.cleared.map(() => true); G.ds.forEach(d => { d.boss = true; d.item = true; d.heart = true; });
+    G.overPos = null; G.seenHeaven = false;
+    enterHeaven();
+  }
+  respawn = function () {
+    if (G.test && G.test.heaven) { startHeaven(); return; }
+    if (G.test) { startTest(G.test.d, G.test.boss); return; }
+    baseRespawn();
   };
-  respawn = function () { if (G.test) { startTest(G.test.d, G.test.boss); return; } baseRespawn(); };
-  // tapping the left or right third of a test row cycles the dungeon instead of starting it
-  document.addEventListener('pointerdown', e => {
-    if (G.mode !== 'title' || G.titleSub || e.target !== cv) return;
-    const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * H, fx = (e.clientX - r.left) / r.width, opts = titleOptions();
-    for (let i = 0; i < opts.length; i++) {
-      const yy = menuY() + i * menuDY();
-      if (y >= yy - 5 && y <= yy + 9 && opts[i][0].startsWith('test') && (fx < .3 || fx > .7)) {
-        G.menu = i; Input.press[fx < .3 ? 'mleft' : 'mright'] = true; e.stopImmediatePropagation(); return;
-      }
-    }
-  }, true);
 })();

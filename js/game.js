@@ -424,8 +424,10 @@ function titleOptions() {
 }
 /* the OPTIONS box that opens over the title screen */
 const OPT_X = 98, OPT_Y = 132, OPT_DY = 14;
+// rows are [id, label, cycles]: a cycling row (like HERO) steps back or forward when its left or right side is tapped
+const optBoxW = list => Math.max(152, Math.max(...list.map(r => textW(r[1]))) + 28);
 function optionList() {
-  const o = [['look', 'HERO: < ' + (HeroLook.get() + 1) + ' OF ' + HERO_LOOKS.length + ' >'], ['sound', 'SOUND: ' + (Aud.muted ? 'OFF' : 'ON')]];
+  const o = [['look', 'HERO: < ' + (HeroLook.get() + 1) + ' OF ' + HERO_LOOKS.length + ' >', true], ['sound', 'SOUND: ' + (Aud.muted ? 'OFF' : 'ON')]];
   if (!R3D.failed) o.push(['view', R3D.label()], ['camera', R3D.camLabel()]);
   o.push(['back', 'BACK']);
   return o;
@@ -641,8 +643,8 @@ function drawTitle(c) {
 function drawOptions(c) { // the options box, beside the hero so a new look shows right away
   const list = optionList(), h = 26 + list.length * OPT_DY;
   c.globalAlpha = .6; R(c, '#000', 0, 0, W, H); c.globalAlpha = 1;
-  drawBox(c, OPT_X - 76, OPT_Y - 20, 152, h);
-  textC(c, 'OPTIONS', OPT_X, OPT_Y - 12, '#8af');
+  const w = optBoxW(list); drawBox(c, OPT_X - w / 2, OPT_Y - 20, w, h);
+  textC(c, G.boxTitle || 'OPTIONS', OPT_X, OPT_Y - 12, '#8af');
   list.forEach(([, l], i) => textC(c, (G.optMenu === i ? '> ' : '  ') + l, OPT_X, OPT_Y + 4 + i * OPT_DY, G.optMenu === i ? '#f8d838' : '#c8c8d8'));
   const lk = HeroLook.get(); c.save(); c.translate(184, 128); c.scale(2, 2); c.drawImage(playerSprite(0, Math.floor(G.t * 2) % 2, null, lk), 0, 0); c.restore();
 }
@@ -752,8 +754,12 @@ function boot() {
     if ((m === 'title' || m === 'pause') && G.titleSub) { // a tap on an option picks it; a tap outside the box closes it
       const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * H;
       const list = optionList(), x = (e.clientX - r.left) / r.width * W;
-      for (let i = 0; i < list.length; i++) { const yy = OPT_Y + 4 + i * OPT_DY; if (y >= yy - 5 && y <= yy + 9 && x > OPT_X - 76 && x < OPT_X + 76) { G.optMenu = i; if (list[i][0] === 'look' && x < OPT_X - 30) Input.press.mleft = true; else Input.press.a = true; return; } }
-      if (x < OPT_X - 76 || x > OPT_X + 76 || y < OPT_Y - 20 || y > OPT_Y + 6 + list.length * OPT_DY) Input.press.b = true;
+      const hw = optBoxW(list) / 2;
+      for (let i = 0; i < list.length; i++) {
+        const yy = OPT_Y + 4 + i * OPT_DY; if (y < yy - 5 || y > yy + 9 || x < OPT_X - hw || x > OPT_X + hw) continue;
+        G.optMenu = i; Input.press[list[i][2] && x < OPT_X - 30 ? 'mleft' : list[i][2] && x > OPT_X + 30 ? 'mright' : 'a'] = true; return;
+      }
+      if (x < OPT_X - hw || x > OPT_X + hw || y < OPT_Y - 20 || y > OPT_Y + 6 + list.length * OPT_DY) Input.press.b = true;
       return;
     }
     if (m === 'title') {

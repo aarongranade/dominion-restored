@@ -21,6 +21,7 @@ Once a dungeon's boss is defeated, entering that dungeon again launches a mini-g
 Notes for whoever builds it:
 - Today, entering a finished dungeon in the restored world (after the Dragon) shows a message instead (`HEAVEN_TEXT.sealed` in `js/data.js`, handled in `GM.onEntrance` in `js/game.js`). Before the Dragon, finished dungeons can still be entered and walked through. The mini-games would replace both.
 - The amusement park "after the throne" fits the new earth and throne room that come after the Dragon (`enterHeaven` in `js/game.js`).
+- Add every mini-game to the Claude page's **TESTS** box (`TESTS()` in `tools/claude-page/test-menu.js`) so it can be played directly. See `CLAUDE.md`.
 
 ## Other ideas discussed
 
