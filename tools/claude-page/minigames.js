@@ -76,6 +76,11 @@ class EdenRun {
       if (ox > 0 && oy > 0) { if (ox < oy) this.px += Math.sign(dx || 1) * ox; else this.py += Math.sign(dy || 1) * oy; }
       if (this.py > 198) { this.hit(); this.py = 190; this.px = clamp(this.px + (dx < 0 ? -22 : 22), 24, 232); }
     }
+    // touching the angel, or his flaming sword as it turns, costs a heart too
+    const sa = this.t * 7, sy = this.ay - 14;
+    let angel = Math.abs(this.px - this.ax) < 22 && this.py + 6 > this.ay - 28;
+    for (let r = 4; r <= 24 && !angel; r += 4) if (dist(this.px, this.py, this.ax + Math.cos(sa) * r, sy + Math.sin(sa) * r) < 10) angel = true;
+    if (angel) this.hit(true);
     // everything else hurts
     for (const o of this.objs) {
       if (o.type === 'tree' || (o.type === 'boar' && o.st === 0)) continue;
@@ -106,9 +111,10 @@ class EdenRun {
     else if (kind === 'boar') add({ type: 'boar', x: clamp(this.px + rnd(-20, 20), 32, 224), y: 26 });
     return kind === 'trees' ? 120 : 80 - k * 15;
   }
-  hit() {
+  hit(fromAngel) {
     if (this.inv > 0 || this.state !== 'run' && this.state !== 'gate') return;
-    this.gap--; this.inv = 1.4; this.lastHit = this.T; this.py = Math.min(198, this.py + 14); this.shake = .25; Aud.sfx('hurt');
+    // a stumble drops them back toward the angel; touching the angel throws them forward, away from him
+    this.gap--; this.inv = 1.4; this.lastHit = this.T; this.py = fromAngel ? Math.max(60, this.py - 26) : Math.min(198, this.py + 14); this.shake = .25; Aud.sfx('hurt');
     for (let i = 0; i < 10; i++) { const a = Math.random() * 6.283, s = rnd(30, 80); this.fx.push({ x: this.px, y: this.py, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rnd(.3, .6), col: pick(['#f83838', '#fff']) }); }
     if (this.gap <= 0) { this.state = 'caught'; this.ct = 0; Aud.sfx('over'); }
   }
