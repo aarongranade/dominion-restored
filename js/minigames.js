@@ -1,6 +1,5 @@
-/* Claude-page-only mini-games (see ROADMAP.md: one per dungeon, played in a circus tent on the screen next to
-   its dungeon, open from the start). Not part of the real game or the app yet: tools/claude-page/build.py appends this file to
-   the Claude page build only, before test-menu.js.
+/* The mini-games (see ROADMAP.md): one per dungeon, played in a circus tent on the screen next to its
+   dungeon, open from the start. Loaded after game.js, whose functions it wraps.
    While G.mini is set and the mode is 'play', the mini-game runs the update and draws the whole screen;
    dialogs, the pause menu and fades still use the game's own code. */
 const MINI = {
@@ -769,7 +768,7 @@ class JobRun {
   }
 }
 
-/* ---- hooks into the game (Claude page only) ---- */
+/* ---- hooks into the game ---- */
 (function () {
   const baseUpdate = update, baseRender = render;
   update = function (dt) {
