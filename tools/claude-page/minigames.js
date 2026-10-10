@@ -1,5 +1,5 @@
-/* Claude-page-only mini-games (see ROADMAP.md: one per dungeon, played by walking back into a beaten
-   dungeon). Not part of the real game or the app yet: tools/claude-page/build.py appends this file to
+/* Claude-page-only mini-games (see ROADMAP.md: one per dungeon, played in a circus tent that goes up on a
+   beaten dungeon's overworld screen). Not part of the real game or the app yet: tools/claude-page/build.py appends this file to
    the Claude page build only, before test-menu.js.
    While G.mini is set and the mode is 'play', the mini-game runs the update and draws the whole screen;
    dialogs, the pause menu and fades still use the game's own code. */
@@ -765,7 +765,7 @@ class JobRun {
 
 /* ---- hooks into the game (Claude page only) ---- */
 (function () {
-  const baseUpdate = update, baseRender = render, baseEntrance = GM.onEntrance;
+  const baseUpdate = update, baseRender = render;
   update = function (dt) {
     if (G.mini && G.mode === 'fade' && !G.fade) setMode('play'); // safety net: never get stuck in a fade that has ended
     if (!G.mini || G.mode !== 'play') return baseUpdate(dt);
@@ -785,18 +785,60 @@ class JobRun {
     if (G.mode === 'pause') drawPause(c);
     drawFade(c);
   };
-  // walking back into a beaten dungeon starts its mini-game
-  GM.onEntrance = function (tx, ty) {
-    if (G.mode === 'play' && G.room && G.room.kind === 'over') {
-      const d = G.room.info.entrance.d;
-      if (G.cleared[d] && MINI.has(d)) {
-        owRemember(G.room); G.overPos = { idx: G.room.idx, x: tx * 16 + 8, y: (ty + 1) * 16 + 10 };
-        Aud.sfx('door'); startFade(() => MINI.start(d)); return;
-      }
+  /* the circus tent: once a dungeon is beaten, a tent goes up on its overworld screen, near the entrance,
+     and walking into the tent's door plays that dungeon's mini-game (the dungeon entrance stays a dungeon) */
+  const OPEN = new Set([T.FLOOR, T.PATH, T.DECO, T.LAND]);
+  function placeTent(room) {
+    const e = room.info && room.info.entrance;
+    if (!e || !G.cleared[e.d] || !MINI.has(e.d)) return;
+    const t = room.tiles, open = (x, y) => x >= 1 && x <= 14 && y >= 1 && y <= 10 && OPEN.has(t[y * 16 + x]);
+    // only ground the hero can walk to from the entrance counts
+    const reach = new Uint8Array(192), q = [[e.x, e.y + 1]];
+    const walk = (x, y) => x >= 1 && x <= 14 && y >= 1 && y <= 10 && !SOLID.has(t[y * 16 + x]) && t[y * 16 + x] !== T.PIT && t[y * 16 + x] !== T.FIRE;
+    while (q.length) { const [x, y] = q.pop(); if (!walk(x, y) || reach[y * 16 + x]) continue; reach[y * 16 + x] = 1; for (const [dx, dy] of DIRV) q.push([x + dx, y + dy]); }
+    // two open tiles for the tent, open ground in front of its door, and a few steps from the entrance
+    let best = null, bd = 1e9;
+    for (let y = 2; y <= 9; y++) for (let x = 1; x <= 13; x++) {
+      if (!open(x, y) || !open(x + 1, y) || !open(x, y + 1) || !open(x + 1, y + 1) || !reach[(y + 1) * 16 + x]) continue;
+      if (Math.abs(x - e.x) < 3 && Math.abs(y - e.y) < 3) continue;
+      const d = Math.abs(Math.hypot(x + .5 - e.x, y - e.y) - 4);
+      if (d < bd) { bd = d; best = [x, y]; }
     }
-    return baseEntrance.call(this, tx, ty);
+    if (!best) return;
+    const [tx, ty] = best;
+    room.tent = { d: e.d, x: tx * 16, y: ty * 16, door: { x: tx * 16 + 16, y: (ty + 1) * 16 + 4 }, armed: false };
+  }
+  function drawTent(c, tn) {
+    const x = tn.x, y = tn.y, fl = Math.floor(G.t * 4) % 2;
+    c.globalAlpha = .3; R(c, '#000', x - 2, y + 14, 36, 3); c.globalAlpha = 1;
+    for (let i = 0; i < 8; i++) R(c, i % 2 ? '#f8f8f8' : '#d83838', x + i * 4, y - 4, 4, 20); // striped walls
+    for (let r = 0; r < 14; r++) { // the peaked roof, in stripes
+      const w = 2 + Math.round(r * 2.3), rx = x + 16 - w / 2;
+      for (let k = 0; k < w; k += 4) R(c, ((k + r) >> 2) % 2 ? '#f8f8f8' : '#d83838', Math.round(rx + k), y - 18 + r, Math.min(4, w - k), 1);
+    }
+    for (let i = 0; i < 8; i++) R(c, '#f8d838', x + i * 4 + 1, y - 4, 2, 2); // gold trim
+    R(c, '#806040', x + 15, y - 27, 1, 10); R(c, fl ? '#f8d838' : '#f8a038', x + 16, y - 27, 5, 3); // flag
+    R(c, '#301818', x + 12, y + 4, 8, 12); R(c, '#d83838', x + 11, y + 3, 2, 13); R(c, '#d83838', x + 19, y + 3, 2, 13); // open door flaps
+    if (tn.armed && Math.floor(G.t * 3) % 2) R(c, '#fff8c0', x + 15, y + 8, 2, 2);
+  }
+  const basePopulate = populate, baseDrawEntities = drawEntities, baseUpdateRoom = updateRoom, base3D = R3D.entities;
+  populate = function (room, fromSlide) { const r = basePopulate(room, fromSlide); if (room.kind === 'over') placeTent(room); return r; };
+  drawEntities = function (c, room) { if (room.tent) drawTent(c, room.tent); return baseDrawEntities(c, room); };
+  R3D.entities = function (room) { if (room.tent) { const tn = room.tent; this.card(tn.x + 16, tn.y + 16, 40, 48, 0, c => drawTent(c, tn), { shadow: 30 }); } return base3D.call(this, room); };
+  updateRoom = function (dt) {
+    baseUpdateRoom(dt);
+    const rm = G.room, tn = rm && rm.tent, p = G.p;
+    if (!tn || G.mode !== 'play') return;
+    // the tent is solid: push the hero's feet out of its footprint (the ground under it stays flat for the 3D view)
+    const fx0 = p.x - 5, fx1 = p.x + 5, fy0 = p.y, fy1 = p.y + 8, ox = Math.min(fx1 - tn.x, tn.x + 32 - fx0), oy = Math.min(fy1 - (tn.y - 2), tn.y + 16 - fy0);
+    if (ox > 0 && oy > 0) { if (ox < oy) p.x += p.x < tn.x + 16 ? -ox : ox; else p.y += p.y < tn.y + 7 ? -oy : oy; }
+    const d = dist(p.x, p.y, tn.door.x, tn.door.y);
+    if (d > 24) tn.armed = true;
+    else if (tn.armed && d < 9 && p.dir === 1) { // walking up into the door
+      tn.armed = false; owRemember(rm); G.overPos = { idx: rm.idx, x: tn.door.x, y: tn.door.y + 12 };
+      Aud.sfx('door'); startFade(() => MINI.start(tn.d));
+    }
   };
-  G.onEntrance = GM.onEntrance;
   // leaving to the title (pause menu) ends any mini-game
   const baseToTitle = toTitle;
   toTitle = function () { if (G) G.mini = null; baseToTitle(); };
