@@ -6,6 +6,7 @@ if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
 New-Item -ItemType Directory -Path (Join-Path $dest 'js') | Out-Null
 Copy-Item (Join-Path $root 'index.html'), (Join-Path $root 'style.css'), (Join-Path $root 'icon.svg') $dest
 Copy-Item (Join-Path $root 'js\*.js') (Join-Path $dest 'js')
+Copy-Item (Join-Path $root 'js\vendor') (Join-Path $dest 'js') -Recurse # Three.js for the 3D view
 $index = Join-Path $dest 'index.html'
 (Get-Content $index) | Where-Object { $_ -notmatch 'rel="manifest"' } | Set-Content $index -Encoding utf8
 Write-Host "Synced game into $dest"

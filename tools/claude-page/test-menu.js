@@ -35,7 +35,7 @@
   }
   updateTitle = function (dt) {
     const opt = titleOptions()[G.menu];
-    if (opt && opt[0].startsWith('test')) {
+    if (!G.titleSub && opt && opt[0].startsWith('test')) {
       if (Input.consume('mleft')) { testD = (testD + 9) % 10; Aud.sfx('select'); }
       if (Input.consume('mright')) { testD = (testD + 1) % 10; Aud.sfx('select'); }
       if (Input.consume('a') || Input.consume('start')) { Aud.init(); Aud.resume(); Aud.sfx('confirm'); startTest(testD, opt[0] === 'testboss'); return; }
@@ -45,7 +45,7 @@
   respawn = function () { if (G.test) { startTest(G.test.d, G.test.boss); return; } baseRespawn(); };
   // tapping the left or right third of a test row cycles the dungeon instead of starting it
   document.addEventListener('pointerdown', e => {
-    if (G.mode !== 'title' || e.target !== cv) return;
+    if (G.mode !== 'title' || G.titleSub || e.target !== cv) return;
     const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * H, fx = (e.clientX - r.left) / r.width, opts = titleOptions();
     for (let i = 0; i < opts.length; i++) {
       const yy = menuY() + i * menuDY();

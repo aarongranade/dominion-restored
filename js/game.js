@@ -416,37 +416,57 @@ function toTitle() { G = freshState(); G.mode = 'title'; G.menu = 0; Aud.music('
 
 /* ---------- title / pause / ending ---------- */
 /* title menu entries */
-const menuY = () => titleOptions().length > 6 ? 138 : 150, menuDY = () => { const n = titleOptions().length; return n > 6 ? 10 : n > 4 ? 11 : 13; };
+const menuY = () => 150, menuDY = () => titleOptions().length > 4 ? 11 : 13;
 function titleOptions() {
   const o = Save.has() ? [['continue', 'CONTINUE']] : [];
-  o.push(['new', 'NEW GAME'], ['look', 'HERO: < ' + (HeroLook.get() + 1) + ' OF ' + HERO_LOOKS.length + ' >'], ['sound', 'SOUND: ' + (Aud.muted ? 'OFF' : 'ON')]);
+  o.push(['new', 'NEW GAME'], ['options', 'OPTIONS']);
+  return o;
+}
+/* the OPTIONS box that opens over the title screen */
+const OPT_X = 98, OPT_Y = 132, OPT_DY = 14;
+function optionList() {
+  const o = [['look', 'HERO: < ' + (HeroLook.get() + 1) + ' OF ' + HERO_LOOKS.length + ' >'], ['sound', 'SOUND: ' + (Aud.muted ? 'OFF' : 'ON')]];
+  if (!R3D.failed) o.push(['view', R3D.label()]);
+  o.push(['back', 'BACK']);
   return o;
 }
 function updateTitle(dt) {
+  if (G.titleSub) { updateOptions(); return; }
   const opts = titleOptions().length;
   if (Input.consume('mup')) { G.menu = (G.menu + opts - 1) % opts; Aud.sfx('select'); }
   if (Input.consume('mdown')) { G.menu = (G.menu + 1) % opts; Aud.sfx('select'); }
-  const cur = titleOptions()[G.menu];
-  if (cur && cur[0] === 'look') { // left/right (or A) picks how the hero looks
-    const n = HERO_LOOKS.length, step = Input.consume('mleft') ? -1 : Input.consume('mright') || Input.consume('a') ? 1 : 0;
-    if (step) { HeroLook.set((HeroLook.get() + step + n) % n); G.p.look = HeroLook.get(); Aud.init(); Aud.sfx('select'); return; }
-  }
   if (Input.consume('a') || Input.consume('start')) {
     Aud.init(); Aud.resume(); Aud.sfx('confirm');
     const sel = titleOptions()[G.menu][0];
     if (sel === 'new') newGame(); else if (sel === 'continue') { const s = Save.load(); if (s) applySave(s); else newGame(); }
-    else if (sel === 'sound') Aud.setMuted(!Aud.muted);
+    else if (sel === 'options') { G.titleSub = true; G.optMenu = 0; Input.clear(); }
+  }
+}
+function updateOptions() {
+  const list = optionList(), n = list.length, close = () => { G.titleSub = false; Aud.sfx('select'); Input.clear(); };
+  if (Input.consume('mup')) { G.optMenu = (G.optMenu + n - 1) % n; Aud.sfx('select'); }
+  if (Input.consume('mdown')) { G.optMenu = (G.optMenu + 1) % n; Aud.sfx('select'); }
+  if (Input.consume('b') || Input.consume('start')) { close(); return; }
+  const sel = list[G.optMenu][0];
+  if (sel === 'look') { // left/right (or A) picks how the hero looks
+    const k = HERO_LOOKS.length, step = Input.consume('mleft') ? -1 : Input.consume('mright') || Input.consume('a') ? 1 : 0;
+    if (step) { HeroLook.set((HeroLook.get() + step + k) % k); G.p.look = HeroLook.get(); Aud.init(); Aud.sfx('select'); }
+    return;
+  }
+  if (Input.consume('a')) {
+    Aud.init(); Aud.resume(); Aud.sfx('confirm');
+    if (sel === 'sound') Aud.setMuted(!Aud.muted); else if (sel === 'view') R3D.toggle(); else close();
   }
 }
 function updatePause(dt) {
-  const n = 4;
+  const n = 5;
   if (Input.consume('mup')) { G.menu = (G.menu + n - 1) % n; G.quitArm = false; Aud.sfx('select'); }
   if (Input.consume('mdown')) { G.menu = (G.menu + 1) % n; G.quitArm = false; Aud.sfx('select'); }
   if (Input.consume('start')) { G.quitArm = false; setMode('play'); return; }
   if (Input.consume('sel')) cycleItem();
   if (Input.consume('a')) {
     Aud.sfx('confirm');
-    if (G.menu === 0) setMode('play'); else if (G.menu === 1) Aud.setMuted(!Aud.muted); else if (G.menu === 2) { G.save(); toTitle(); }
+    if (G.menu === 0) setMode('play'); else if (G.menu === 1) Aud.setMuted(!Aud.muted); else if (G.menu === 2) R3D.toggle(); else if (G.menu === 3) { G.save(); toTitle(); }
     else if (!G.quitArm) G.quitArm = true; // quitting without saving asks for a second press
     else toTitle(); // back to the last automatic save
   }
@@ -486,12 +506,13 @@ function drawDark(c, room) {
   dctx.globalCompositeOperation = 'source-over';
   c.drawImage(DARKBUF, 0, 0);
 }
+function drawChest(c, k) {
+  const x = k.x, y = k.y; c.globalAlpha = .4; R(c, '#000', x - 9, y + 7, 18, 3); c.globalAlpha = 1;
+  R(c, '#603010', x - 8, y - 6, 16, 13); R(c, '#a06020', x - 7, y - 5, 14, 5); R(c, '#f8d838', x - 1, y - 3, 3, 5); R(c, '#401808', x - 8, y, 16, 1);
+  if (k.open) { R(c, '#401808', x - 7, y - 8, 14, 3); R(c, '#201008', x - 6, y - 4, 12, 4); R(c, '#fff8c0', x - 5, y - 12, 10, 6); } else if (Math.floor(G.t * 4) % 6 === 0) R(c, '#fff', x + 5, y - 7, 2, 2);
+}
 function drawEntities(c, room) {
-  for (const k of [room.chest]) if (k) {
-    const x = k.x, y = k.y; c.globalAlpha = .4; R(c, '#000', x - 9, y + 7, 18, 3); c.globalAlpha = 1;
-    R(c, '#603010', x - 8, y - 6, 16, 13); R(c, '#a06020', x - 7, y - 5, 14, 5); R(c, '#f8d838', x - 1, y - 3, 3, 5); R(c, '#401808', x - 8, y, 16, 1);
-    if (k.open) { R(c, '#401808', x - 7, y - 8, 14, 3); R(c, '#201008', x - 6, y - 4, 12, 4); R(c, '#fff8c0', x - 5, y - 12, 10, 6); } else if (Math.floor(G.t * 4) % 6 === 0) R(c, '#fff', x + 5, y - 7, 2, 2);
-  }
+  if (room.chest) drawChest(c, room.chest);
   if (room.beam) {
     const b = room.beam; c.globalAlpha = .55 + .2 * Math.sin(G.t * 8); R(c, '#fff8c0', b.x - 10, 0, 20, 192); c.globalAlpha = .9; R(c, '#fff', b.x - 4, 0, 8, 192); c.globalAlpha = 1;
     for (let i = 0; i < 4; i++) R(c, '#fff', Math.round(b.x - 12 + ((G.t * 40 + i * 20) % 24)), Math.round(190 - ((G.t * 50 + i * 37) % 190)), 2, 2);
@@ -606,15 +627,24 @@ function drawTitle(c) {
   for (let i = 0; i < 24; i++) { const y = 168 - i * 2.8, x = 40 + Math.sin(i * .6 + G.t * 2) * 8; disc(c, '#58c848', Math.round(x), Math.round(y), 2); }
   disc(c, '#58c848', 40 + Math.round(Math.sin(24 * .6 + G.t * 2) * 8), 100, 3); R(c, '#f83838', 41 + Math.round(Math.sin(24 * .6 + G.t * 2) * 8), 98, 1, 1);
   // the hero, as chosen on the HERO line, standing on the hill with the staff
-  { const lk = HeroLook.get(), img = playerSprite(0, Math.floor(G.t * 2) % 2 && titleOptions()[G.menu] && titleOptions()[G.menu][0] === 'look' ? 1 : 0, null, lk);
+  { const lk = HeroLook.get(), img = playerSprite(0, Math.floor(G.t * 2) % 2 && G.titleSub && optionList()[G.optMenu][0] === 'look' ? 1 : 0, null, lk);
     c.save(); c.translate(184, 128); c.scale(2, 2); c.drawImage(img, 0, 0); c.restore();
     R(c, '#4a2a10', 214, 124, 2, 36); R(c, '#f8f8c8', 214, 120, 2, 5); }
   // title
   textBig(c, 'DOMINION', 128, 14, '#f8d838', '#701818', 4); textBig(c, 'RESTORED', 128, 50, '#fcfcfc', '#2a2a80', 4);
   textC(c, 'FROM EDEN TO REVELATION', 128, 88, '#f8e8a0');
   titleOptions().forEach(([, l], i) => { const y = menuY() + i * menuDY(), bw = Math.max(136, textW(l) + 24); R(c, 'rgba(0,0,0,.55)', 128 - bw / 2, y - 2, bw, 11); textC(c, (G.menu === i && Math.floor(G.t * 3) % 2 === 0 ? '> ' : G.menu === i ? '> ' : '  ') + l, 128, y, G.menu === i ? '#f8d838' : '#c8c8d8'); });
-  if (titleOptions().length <= 6) textC(c, 'TAP OR PRESS A', 128, 208, '#a0a0c0'); text(c, 'V1.0', 226, 214, '#707090');
+  textC(c, 'TAP OR PRESS A', 128, 208, '#a0a0c0'); text(c, 'V1.0', 226, 214, '#707090');
+  if (G.titleSub) { // the options box, beside the hero so a new look shows right away
+    const list = optionList(), h = 26 + list.length * OPT_DY;
+    c.globalAlpha = .6; R(c, '#000', 0, 0, W, H); c.globalAlpha = 1;
+    drawBox(c, OPT_X - 76, OPT_Y - 20, 152, h);
+    textC(c, 'OPTIONS', OPT_X, OPT_Y - 12, '#8af');
+    list.forEach(([, l], i) => textC(c, (G.optMenu === i ? '> ' : '  ') + l, OPT_X, OPT_Y + 4 + i * OPT_DY, G.optMenu === i ? '#f8d838' : '#c8c8d8'));
+    const lk = HeroLook.get(); c.save(); c.translate(184, 128); c.scale(2, 2); c.drawImage(playerSprite(0, Math.floor(G.t * 2) % 2, null, lk), 0, 0); c.restore();
+  }
 }
+const PAUSE_Y = 156;
 function drawPause(c) {
   c.globalAlpha = .88; R(c, '#000', 0, 0, W, H); c.globalAlpha = 1;
   textC(c, 'PAUSED', 128, 8, '#f8d838');
@@ -629,8 +659,8 @@ function drawPause(c) {
   if (p.shield) c.drawImage(icon('shield'), 36 + own.length * 20, 108); if (p.armor) c.drawImage(icon('armor'), 56 + own.length * 20, 108);
   if (p.sel) text(c, ITEMS[p.sel].name, 12, 132, '#fff'); else text(c, 'NO ITEMS YET', 12, 132, '#707090');
   text(c, 'HEARTS ' + (p.hp / 2) + '/' + (p.max / 2), 12, 146, '#f88');
-  const opts = ['RESUME', 'SOUND: ' + (Aud.muted ? 'OFF' : 'ON'), 'SAVE AND QUIT', G.quitArm ? 'PRESS A AGAIN TO QUIT' : 'QUIT WITHOUT SAVING'];
-  opts.forEach((o, i) => textC(c, (G.menu === i ? '> ' : '  ') + o, 128, 158 + i * 11, G.menu === i ? (i === 3 && G.quitArm ? '#f88' : '#f8d838') : '#c8c8d8'));
+  const opts = ['RESUME', 'SOUND: ' + (Aud.muted ? 'OFF' : 'ON'), R3D.label(), 'SAVE AND QUIT', G.quitArm ? 'PRESS A AGAIN TO QUIT' : 'QUIT WITHOUT SAVING'];
+  opts.forEach((o, i) => textC(c, (G.menu === i ? '> ' : '  ') + o, 128, PAUSE_Y + i * 10, G.menu === i ? (i === 4 && G.quitArm ? '#f88' : '#f8d838') : '#c8c8d8'));
   textC(c, 'ITEM BUTTON CYCLES B ITEM', 128, 206, '#707090');
 }
 function drawEnding(c) {
@@ -661,9 +691,12 @@ function render() {
   const c = ctx; c.imageSmoothingEnabled = false;
   c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
   const m = G.mode;
+  if (R3D.cv) R3D.cv.style.visibility = R3D.active() ? 'visible' : 'hidden';
   if (m === 'title') { drawTitle(c); return; }
   if (m === 'ending') { drawEnding(c); drawFade(c); return; }
   drawHUD(c);
+  if (R3D.active()) { c.clearRect(0, HUDH, W, 192); R3D.render(); }
+  else {
   c.save(); c.beginPath(); c.rect(0, HUDH, W, 192); c.clip();
   let sx = 0, sy = 0; if (G.shake > 0) { sx = Math.round(rnd(-1, 1) * Math.min(3, G.shake * 8)); sy = Math.round(rnd(-1, 1) * Math.min(3, G.shake * 8)); }
   if (m === 'trans' && G.trans) {
@@ -676,6 +709,7 @@ function render() {
     c.translate(sx, HUDH + sy); drawEntitiesWrap(c);
   }
   c.restore();
+  }
   if (G.room && m !== 'trans') { drawBossBar(c); }
   drawBanner(c);
   if (m === 'bossintro') drawBossIntro(c);
@@ -707,16 +741,22 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 function boot() {
-  Input.init();
+  Input.init(); R3D.init();
   // tap on the screen advances menus / dialogs
   cv.addEventListener('pointerdown', e => {
     Aud.init(); Aud.resume();
     const m = G.mode; if (m === 'title') {
       const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * H, n = titleOptions().length;
+      if (G.titleSub) { // a tap on an option picks it; a tap outside the box closes it
+        const list = optionList(), x = (e.clientX - r.left) / r.width * W;
+        for (let i = 0; i < list.length; i++) { const yy = OPT_Y + 4 + i * OPT_DY; if (y >= yy - 5 && y <= yy + 9 && x > OPT_X - 76 && x < OPT_X + 76) { G.optMenu = i; if (list[i][0] === 'look' && x < OPT_X - 30) Input.press.mleft = true; else Input.press.a = true; return; } }
+        if (x < OPT_X - 76 || x > OPT_X + 76 || y < OPT_Y - 20 || y > OPT_Y + 6 + list.length * OPT_DY) Input.press.b = true;
+        return;
+      }
       for (let i = 0; i < n; i++) { const yy = menuY() + i * menuDY(); if (y >= yy - 5 && y <= yy + 11) { G.menu = i; Input.press.a = true; return; } }
       Input.press.a = true;
     } else if (m === 'dialog' || m === 'gameover' || m === 'ending') Input.press.a = true;
-    else if (m === 'pause') { const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * H; for (let i = 0; i < 4; i++) { const yy = 158 + i * 11; if (y >= yy - 3 && y <= yy + 8) { G.menu = i; Input.press.a = true; return; } } }
+    else if (m === 'pause') { const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * H; for (let i = 0; i < 5; i++) { const yy = PAUSE_Y + i * 10; if (y >= yy - 2 && y <= yy + 7) { G.menu = i; Input.press.a = true; return; } } }
   });
   document.addEventListener('visibilitychange', () => { if (document.hidden) { if (G.mode === 'play') setMode('pause'); Aud.ctx && Aud.ctx.suspend && Aud.ctx.suspend(); } else Aud.resume(); });
   // debug hooks for testing: ?d=N jumps into dungeon N with items, ?god for invulnerability
