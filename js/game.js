@@ -426,7 +426,7 @@ function titleOptions() {
 const OPT_X = 98, OPT_Y = 132, OPT_DY = 14;
 function optionList() {
   const o = [['look', 'HERO: < ' + (HeroLook.get() + 1) + ' OF ' + HERO_LOOKS.length + ' >'], ['sound', 'SOUND: ' + (Aud.muted ? 'OFF' : 'ON')]];
-  if (!R3D.failed) o.push(['view', R3D.label()]);
+  if (!R3D.failed) o.push(['view', R3D.label()], ['camera', R3D.camLabel()]);
   o.push(['back', 'BACK']);
   return o;
 }
@@ -455,7 +455,7 @@ function updateOptions() {
   }
   if (Input.consume('a')) {
     Aud.init(); Aud.resume(); Aud.sfx('confirm');
-    if (sel === 'sound') Aud.setMuted(!Aud.muted); else if (sel === 'view') R3D.toggle(); else close();
+    if (sel === 'sound') Aud.setMuted(!Aud.muted); else if (sel === 'view') R3D.toggle(); else if (sel === 'camera') R3D.toggleCam(); else close();
   }
 }
 function updatePause(dt) {

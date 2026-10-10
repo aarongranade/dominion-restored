@@ -24,6 +24,11 @@ const R3D = {
   },
   toggle() { this.setOn(!this.on); },
   label() { return 'VIEW: ' + (this.on ? '3D' : '2D'); },
+  // camera: ROOM shows the whole room; FOLLOW moves in closer and glides after the hero
+  CAM_PREF: 'dominion-restored-camera', ZOOM: .62,
+  follow() { try { return localStorage.getItem(this.CAM_PREF) === 'follow'; } catch (e) { return false; } },
+  toggleCam() { try { localStorage.setItem(this.CAM_PREF, this.follow() ? 'room' : 'follow'); } catch (e) { } },
+  camLabel() { return 'CAMERA: ' + (this.follow() ? 'FOLLOW' : 'ROOM'); },
   load() {
     if (this.loading || this.failed) return;
     if (window.THREE) { this.setup(); return; }
@@ -105,11 +110,33 @@ const R3D = {
       const mid = Math.abs(fits(hi, tz).mid);
       if (!best || mid < best.mid) best = { D: hi, tz, mid };
     }
-    this.camD = best.D; this.camTz = best.tz; this.setCam(0, 0);
+    this.camD = best.D; this.camTz = best.tz;
+    // the patch of floor the FOLLOW camera sees (aimed at the room centre): used to keep that view inside the room
+    this.setCam(0, 0, this.ZOOM); cam.updateMatrixWorld();
+    const fp = { x0: 1e9, x1: -1e9, z0: 1e9, z1: -1e9 }, o = cam.position;
+    for (const [u, w] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      const d = new TH.Vector3(u, w, .5).unproject(cam).sub(o), t = -o.y / d.y, x = o.x + d.x * t, z = o.z + d.z * t;
+      fp.x0 = Math.min(fp.x0, x); fp.x1 = Math.max(fp.x1, x); fp.z0 = Math.min(fp.z0, z); fp.z1 = Math.max(fp.z1, z);
+    }
+    this.fp = fp; this.setCam(0, 0);
   },
-  setCam(sx, sy) {
-    const s = Math.sin(this.pitch), c = Math.cos(this.pitch), cam = this.cam;
-    cam.position.set(sx, this.camD * s, this.camTz + sy + this.camD * c); cam.lookAt(sx, 0, this.camTz + sy); cam.updateMatrixWorld();
+  setCam(sx, sy, zoom) {
+    const s = Math.sin(this.pitch), c = Math.cos(this.pitch), cam = this.cam, D = this.camD * (zoom || 1), tz = this.camTz * (zoom || 1);
+    cam.position.set(sx, D * s, tz + sy + D * c); cam.lookAt(sx, 0, tz + sy); cam.updateMatrixWorld();
+  },
+  // where the camera looks: the room's centre, or (FOLLOW) the hero, kept far enough from the walls that no void shows
+  aim(px, py, dt) {
+    const f = this.follow(), z = f ? this.ZOOM : 1;
+    let tx = 0, ty = 0;
+    if (f) { // centre the hero, but never let the view run past the room's edges
+      const fp = this.fp, mid = (fp.z0 + fp.z1) / 2;
+      const ax0 = -128 - fp.x0, ax1 = 128 - fp.x1, az0 = -96 - fp.z0, az1 = 96 - fp.z1;
+      tx = ax0 > ax1 ? 0 : clamp(px - 128, ax0, ax1);
+      ty = az0 > az1 ? 0 : clamp(py - 96 - mid, az0, az1);
+    }
+    if (this.aimX === undefined || this.aimZoom !== z) { this.aimX = tx; this.aimY = ty; this.aimZoom = z; } // snap when switching modes
+    const k = Math.min(1, dt * 5); this.aimX += (tx - this.aimX) * k; this.aimY += (ty - this.aimY) * k;
+    return z;
   },
   place() {
     // lay the 3D canvas exactly over the play area of the 2D screen canvas (which stays on top for the HUD)
@@ -314,7 +341,11 @@ const R3D = {
     this.place();
     const m = G.mode, TH = THREE;
     let sx = 0, sy = 0; if (G.shake > 0) { sx = rnd(-1, 1) * Math.min(3, G.shake * 8); sy = rnd(-1, 1) * Math.min(3, G.shake * 8); }
-    this.setCam(-sx, -sy);
+    const now = performance.now(), dt = Math.min(.1, (now - (this.lastT || now)) / 1000); this.lastT = now;
+    let hx = G.p.x, hy = G.p.y;
+    if (m === 'trans' && G.trans) { const tr = G.trans, k = Math.min(1, tr.t / tr.dur); hx = tr.sx + (tr.nx - tr.sx) * k; hy = tr.sy + (tr.ny - tr.sy) * k; }
+    const zoom = this.aim(hx, hy, dt);
+    this.setCam(this.aimX - sx, this.aimY - sy, zoom);
     for (const e of this.rooms.values()) e.group.visible = false;
     this.ci = 0; this.pk = { x: 0, y: 0, row: 0 };
     this.ax.clearRect(0, 0, 512, 512);
