@@ -29,7 +29,7 @@ On Windows and Mac the game opens in a 900x860 window. With a mouse and a wide w
 GitHub Actions (`.github/workflows/maui.yml`) checks the bundled game is in sync, builds an installable Android APK (download it from the run's artifacts), builds for the iOS simulator, Windows and Mac Catalyst.
 
 ## Before publishing to the stores
-1. **App ID**: `com.aarongranade.dominionrestored` is set in `DominionRestored.csproj`. Change it now if you want a different one; it cannot change after the first upload.
+1. **App ID**: `com.kingdommanagementsolutions.dominionrestored` is set in `DominionRestored.csproj`. Change it now if you want a different one; it cannot change after the first upload.
 2. **Version**: bump `ApplicationVersion` for every upload, `ApplicationDisplayVersion` for user-visible releases.
 3. **Android (Google Play)**: create an upload keystore (keep it safe, never commit it), then
    `dotnet publish maui/DominionRestored -f net10.0-android -c Release -p:AndroidKeyStore=true -p:AndroidSigningKeyStore=<path> -p:AndroidSigningKeyAlias=<alias> -p:AndroidSigningKeyPass=env:KEY_PASS -p:AndroidSigningStorePass=env:STORE_PASS`
