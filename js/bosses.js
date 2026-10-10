@@ -340,53 +340,96 @@ class Goliath extends Boss {
 
 /* ---- 7. the great image (Daniel 2) ---- */
 class GreatImage extends Boss {
+  // Daniel 2: head of gold, breast of silver, belly of bronze, legs of iron, feet of clay.
+  // The image spends most of its time collapsed down onto its feet, sliding slowly around the room; its top section
+  // cannot be hurt then. About every ten seconds it rises to full height and the top section is exposed. The first
+  // blow stuns it for about three seconds of free strikes, then it sinks again. Break the top and the next one is exposed.
   constructor() {
-    super('image', 'THE GREAT IMAGE', 35); this.x = 128; this.y = 60; this.phase = 0; this.st = 0; this.n = 0;
+    super('image', 'THE GREAT IMAGE', 35); this.phase = 0; this.n = 0;
     this.sec = [
       { name: 'GOLD', y: 30, hw: 11, hh: 10, hp: 7, col: ['#f8c838', '#a07808', '#fff0a0'] }, { name: 'SILVER', y: 50, hw: 21, hh: 10, hp: 7, col: ['#d0d8e8', '#7080a0', '#fcfcfc'] },
       { name: 'BRONZE', y: 69, hw: 17, hh: 9, hp: 7, col: ['#c87838', '#784018', '#f0b070'] }, { name: 'IRON', y: 89, hw: 15, hh: 11, hp: 7, col: ['#808898', '#404858', '#b8c0d0'] },
       { name: 'CLAY', y: 110, hw: 19, hh: 10, hp: 7, col: ['#b87848', '#704018', '#e0a878'] }
     ];
+    this.bx = 128; this.by = 128; // where the feet stand (s.y above is the height with the feet at 120)
+    this.state = 'down'; this.st = 5; this.e = 0; this.cyc = 0; this.tx = 128; this.ty = 128; // the first rise comes a little sooner
+    this.x = 128; this.y = 60;
   }
-  rawParts() { return this.sec.map((s, i) => ({ x: 128, y: s.y, hw: s.hw, hh: s.hh, vuln: i === this.phase && s.hp > 0, id: 's' + i })).filter((p, i) => this.sec[i].hp > 0); }
+  alive(i) { return this.sec[i].hp > 0; }
+  secY(i) { // height of a section: stretched out when standing, telescoped onto the feet when collapsed
+    const s = this.sec[i], up = this.by + (s.y - 120);
+    let slot = 0; for (let k = 4; k > i; k--) if (this.alive(k)) slot++;
+    const down = this.by - s.hh - slot * 6;
+    return down + (up - down) * this.e;
+  }
+  topY() { let t = 999; this.sec.forEach((s, i) => { if (s.hp > 0) t = Math.min(t, s.y - 120 - s.hh); }); return t; }
+  exposed() { return this.state === 'up' || this.state === 'stun'; }
+  rawParts() {
+    return this.sec.map((s, i) => ({ x: this.bx, y: this.secY(i), hw: s.hw, hh: s.hh, vuln: i === this.phase && this.exposed(), id: 's' + i })).filter((p, i) => this.alive(i));
+  }
   hit(part, dmg, src) {
     const i = +part.id.slice(1);
-    if (i !== this.phase) { Aud.sfx('clink'); return 'block'; }
-    const s = this.sec[i]; s.hp -= dmg; this.hp = this.sec.reduce((a, q) => a + Math.max(0, q.hp), 0); this.flash = .12; Aud.sfx('hit'); fxBurst(128, s.y, s.col, 6, 70, .4, 2);
+    if (i !== this.phase || !this.exposed()) { Aud.sfx('clink'); return 'block'; }
+    const s = this.sec[i]; s.hp -= dmg; this.hp = this.sec.reduce((a, q) => a + Math.max(0, q.hp), 0); this.flash = .12; Aud.sfx('hit'); fxBurst(this.bx, part.y, s.col, 6, 70, .4, 2);
+    if (this.state === 'up') { this.state = 'stun'; this.st = 0; G.room.projs.length = 0; } // the first blow staggers it
     if (s.hp <= 0) {
-      fxBurst(128, s.y, s.col, 30, 110, .9, 3); Aud.sfx('boom'); G.shake = .5; this.phase++; this.st = 0; this.n = 0; G.room.projs.length = 0;
-      if (this.phase >= 5) this.die(); else G.banner('THE ' + this.sec[this.phase].name + ' STIRS!');
+      fxBurst(this.bx, part.y, s.col, 30, 110, .9, 3); Aud.sfx('boom'); G.shake = .5; this.phase++; this.n = 0; G.room.projs.length = 0;
+      if (this.phase >= 5) this.die(); else { this.state = 'fall'; this.st = 0; G.banner('THE ' + this.sec[this.phase].name + ' STIRS!'); }
     }
     return 'dmg';
   }
   ai(dt) {
     const p = ppos(); this.st += dt;
     const s = this.sec[this.phase]; if (!s) return;
-    const y = s.y;
+    // feet must stay inside the room, with room overhead for the image to stand up
+    const minY = 26 - this.topY(), maxY = 160;
+    if (this.state === 'down') {
+      this.e = Math.max(0, this.e - dt * 3);
+      if (dist(this.bx, this.by, this.tx, this.ty) < 4) { this.tx = rnd(48, 208); this.ty = rnd(minY, maxY); }
+      const a = Math.atan2(this.ty - this.by, this.tx - this.bx), sp = 16 + this.phase * 3; // a slow, grinding slide
+      this.bx = clamp(this.bx + Math.cos(a) * sp * dt, 40, 216); this.by = clamp(this.by + Math.sin(a) * sp * dt, minY, maxY);
+      if (this.st > 9) { this.state = 'rise'; this.st = 0; Aud.sfx('bossroar'); G.shake = .25; }
+    } else if (this.state === 'rise') {
+      this.e = Math.min(1, this.st / .8);
+      if (this.st >= .8) { this.state = 'up'; this.st = 0; if (!this.cyc++) G.banner('STRIKE THE ' + s.name + ' WHILE THE IMAGE STANDS!'); }
+    } else if (this.state === 'up') {
+      this.e = 1; if (this.st > 4) { this.state = 'fall'; this.st = 0; }
+    } else if (this.state === 'stun') {
+      this.e = 1; if (this.st > 3) { this.state = 'fall'; this.st = 0; }
+    } else if (this.state === 'fall') {
+      this.e = Math.max(0, 1 - this.st / .5);
+      if (this.st >= .5) { this.state = 'down'; this.st = 0; this.n = 0; this.attackT = 0; Aud.sfx('boom'); G.shake = .2; }
+    }
+    this.x = this.bx; this.y = this.secY(this.phase);
+    if (this.state === 'stun' || this.state === 'rise' || this.state === 'fall') return; // no attacks while staggered or moving between heights
+    // each metal keeps its own attack, fired from wherever the image is
+    const y = this.secY(this.phase), x = this.bx, t = this.attackT = (this.attackT || 0) + dt;
     switch (this.phase) {
-      case 0: if (this.st > 1.2 + this.n * 1.5) { this.n++; fan(128, y + 6, p[0], p[1], 5, .25, 95, 'gold', 1); Aud.sfx('spit'); if (this.n % 3 === 0) for (let i = 0; i < 3; i++) addHazard(clamp(p[0] + rnd(-40, 40), 30, 226), clamp(p[1] + rnd(-30, 30), 50, 164), 1 + i * .3, 11, 2, 'gold', { fall: 80 }); } break;
-      case 1: if (this.st > 1 + this.n * 1.2) { this.n++; for (let i = 0; i < 6; i++) { const ax = clamp(p[0] + (i - 2.5) * 22 + rnd(-6, 6), 24, 232); shootAng(ax, 40, Math.PI / 2, 105, 'arrow', 1, { life: 2.2, pass: 0 }); } Aud.sfx('arrow'); } break;
-      case 2: if (this.st > 1.5 && this.st % 4.5 < 3) { this.sp = (this.sp || 0) + dt; if (this.sp > .14) { this.sp = 0; this.a = (this.a || 0) + .55; for (let k = 0; k < 3; k++) shootAng(128, y + 4, this.a + k * 2.094, 75, 'fire', 1); Aud.sfx('spit'); } } break;
-      case 3: if (this.st > 1.2 + this.n * 2.6) { this.n++; const gap = rint(2, 13); for (let i = 1; i < 15; i++) if (Math.abs(i - gap) > 1) shootAng(i * 16 + 8, 118, Math.PI / 2, 62, 'bar', 1, { life: 4, hw: 6, hh: 3 }); Aud.sfx('boom'); } break;
-      case 4: if (this.st > 1 + this.n * 3 && G.room.enemies.length < 4) { this.n++; spawnEnemy('mudling', 100, 128, { summoned: 1 }); spawnEnemy('mudling', 156, 128, { summoned: 1 }); fan(128, y + 8, p[0], p[1], 3, .35, 70, 'mud', 1); } break;
+      case 0: if (t > 1.6 + this.n * 1.8) { this.n++; fan(x, y + 6, p[0], p[1], 5, .25, 95, 'gold', 1); Aud.sfx('spit'); if (this.n % 3 === 0) for (let i = 0; i < 3; i++) addHazard(clamp(p[0] + rnd(-40, 40), 30, 226), clamp(p[1] + rnd(-30, 30), 50, 164), 1 + i * .3, 11, 2, 'gold', { fall: 80 }); } break;
+      case 1: if (t > 1.4 + this.n * 1.6) { this.n++; for (let i = 0; i < 6; i++) { const ax = clamp(p[0] + (i - 2.5) * 22 + rnd(-6, 6), 24, 232); shootAng(ax, 40, Math.PI / 2, 105, 'arrow', 1, { life: 2.2, pass: 0 }); } Aud.sfx('arrow'); } break;
+      case 2: if (t % 4.5 < 3) { this.sp = (this.sp || 0) + dt; if (this.sp > .16) { this.sp = 0; this.a = (this.a || 0) + .55; for (let k = 0; k < 3; k++) shootAng(x, y + 4, this.a + k * 2.094, 75, 'fire', 1); Aud.sfx('spit'); } } break;
+      case 3: if (t > 1.6 + this.n * 2.8) { this.n++; const gap = rint(2, 13); for (let i = 1; i < 15; i++) if (Math.abs(i - gap) > 1) shootAng(i * 16 + 8, 24, Math.PI / 2, 62, 'bar', 1, { life: 4, hw: 6, hh: 3 }); Aud.sfx('boom'); } break;
+      case 4: if (t > 1.4 + this.n * 3 && G.room.enemies.length < 4) { this.n++; spawnEnemy('mudling', clamp(x - 28, 30, 226), clamp(this.by + 10, 40, 164), { summoned: 1 }); spawnEnemy('mudling', clamp(x + 28, 30, 226), clamp(this.by + 10, 40, 164), { summoned: 1 }); fan(x, y + 8, p[0], p[1], 3, .35, 70, 'mud', 1); } break;
     }
   }
   draw(c) {
-    const cx = 128;
-    // pedestal
-    R(c, '#303040', 96, 120, 64, 8); R(c, '#505068', 98, 118, 60, 4);
-    this.sec.forEach((s, i) => {
-      if (s.hp <= 0) { if (i === this.phase - 1 || true) { c.globalAlpha = .6; R(c, s.col[1], cx - s.hw, s.y + s.hh - 3, s.hw * 2, 3); c.globalAlpha = 1; } return; }
-      const x0 = cx - s.hw, w = s.hw * 2, active = i === this.phase;
-      R(c, s.col[1], x0, s.y - s.hh, w, s.hh * 2); R(c, s.col[0], x0 + 1, s.y - s.hh + 1, w - 2, s.hh * 2 - 3); R(c, s.col[2], x0 + 2, s.y - s.hh + 1, w - 4, 2);
-      if (i === 0) { R(c, '#000', cx - 5, s.y - 2, 3, 2); R(c, '#000', cx + 3, s.y - 2, 3, 2); R(c, s.col[1], cx - 3, s.y + 4, 7, 1); R(c, s.col[2], cx - 8, s.y - 10, 16, 2); }
-      if (i === 1) { R(c, s.col[1], cx - 1, s.y - s.hh, 2, s.hh * 2); }
-      if (i === 2) { R(c, s.col[1], cx - 6, s.y - 2, 12, 1); R(c, s.col[2], cx - 2, s.y + 1, 4, 3); }
-      if (i === 3) { R(c, s.col[1], cx - 1, s.y - s.hh, 2, s.hh * 2); R(c, s.col[2], x0 + 3, s.y - 6, 3, 10); R(c, s.col[2], cx + 2, s.y - 6, 3, 10); }
-      if (i === 4) { for (let k = 0; k < 5; k++) R(c, s.col[1], x0 + 3 + k * 7, s.y - 7 + (k % 2) * 4, 2, 6); R(c, s.col[1], cx - 1, s.y - 8, 2, 16); }
-      if (active && Math.floor(this.t * 8) % 2) { c.strokeStyle = '#fcfcfc'; c.lineWidth = 1; c.strokeRect(x0 + .5, s.y - s.hh + .5, w - 1, s.hh * 2 - 1); }
-      if (active && this.flash > 0) { c.globalAlpha = .6; R(c, '#fff', x0, s.y - s.hh, w, s.hh * 2); c.globalAlpha = 1; }
-    });
+    const cx = Math.round(this.bx), by = Math.round(this.by);
+    c.globalAlpha = .35; R(c, '#000', cx - 24, by - 2, 48, 5); c.globalAlpha = 1; // its shadow on the floor
+    R(c, '#303040', cx - 22, by - 4, 44, 6); R(c, '#505068', cx - 20, by - 6, 40, 3); // the plinth it slides on
+    for (let i = 4; i >= 0; i--) { // feet first, so each higher section sits on the one below
+      const s = this.sec[i]; if (s.hp <= 0) continue;
+      const sy = Math.round(this.secY(i)), x0 = cx - s.hw, w = s.hw * 2, active = i === this.phase;
+      R(c, s.col[1], x0, sy - s.hh, w, s.hh * 2); R(c, s.col[0], x0 + 1, sy - s.hh + 1, w - 2, s.hh * 2 - 3); R(c, s.col[2], x0 + 2, sy - s.hh + 1, w - 4, 2);
+      if (i === 0) { R(c, '#000', cx - 5, sy - 2, 3, 2); R(c, '#000', cx + 3, sy - 2, 3, 2); R(c, s.col[1], cx - 3, sy + 4, 7, 1); R(c, s.col[2], cx - 8, sy - 10, 16, 2); }
+      if (i === 1) { R(c, s.col[1], cx - 1, sy - s.hh, 2, s.hh * 2); }
+      if (i === 2) { R(c, s.col[1], cx - 6, sy - 2, 12, 1); R(c, s.col[2], cx - 2, sy + 1, 4, 3); }
+      if (i === 3) { R(c, s.col[1], cx - 1, sy - s.hh, 2, s.hh * 2); R(c, s.col[2], x0 + 3, sy - 6, 3, 10); R(c, s.col[2], cx + 2, sy - 6, 3, 10); }
+      if (i === 4) { for (let k = 0; k < 5; k++) R(c, s.col[1], x0 + 3 + k * 7, sy - 7 + (k % 2) * 4, 2, 6); R(c, s.col[1], cx - 1, sy - 8, 2, 16); }
+      if (active && this.exposed() && Math.floor(this.t * 8) % 2) { c.strokeStyle = '#fcfcfc'; c.lineWidth = 1; c.strokeRect(x0 + .5, sy - s.hh + .5, w - 1, s.hh * 2 - 1); }
+      if (active && this.flash > 0) { c.globalAlpha = .6; R(c, '#fff', x0, sy - s.hh, w, s.hh * 2); c.globalAlpha = 1; }
+      if (active && this.state === 'stun') for (let k = 0; k < 3; k++) { const a = this.t * 6 + k * 2.1; R(c, '#f8f038', Math.round(cx + Math.cos(a) * (s.hw + 3)), Math.round(sy - s.hh - 4 + Math.sin(a) * 2), 2, 2); } // dazed
+    }
+    if (this.state === 'down' && this.st > 7.5 && Math.floor(this.t * 10) % 2) { const s = this.sec[this.phase]; if (s) R(c, '#fcfcfc', cx - 2, Math.round(this.secY(this.phase)) - s.hh - 6, 4, 2); } // about to rise
   }
 }
 

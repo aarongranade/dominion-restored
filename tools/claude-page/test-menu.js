@@ -48,7 +48,7 @@
     if (G.mode !== 'title' || e.target !== cv) return;
     const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * H, fx = (e.clientX - r.left) / r.width, opts = titleOptions();
     for (let i = 0; i < opts.length; i++) {
-      const yy = MENU_Y + i * menuDY();
+      const yy = menuY() + i * menuDY();
       if (y >= yy - 5 && y <= yy + 9 && opts[i][0].startsWith('test') && (fx < .3 || fx > .7)) {
         G.menu = i; Input.press[fx < .3 ? 'mleft' : 'mright'] = true; e.stopImmediatePropagation(); return;
       }

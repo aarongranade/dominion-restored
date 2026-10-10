@@ -27,6 +27,8 @@ To host it for your phone, turn on **GitHub Pages** (Settings → Pages → *Dep
 | Pause / menu | **START** | Enter / P / Esc |
 | Mute | | M |
 
+Pick how the hero looks on the title screen (**HERO: < 1 OF 4 >**, left/right or A to change): four looks with different hair, skin and tunic. The choice is remembered.
+
 ### 3D view
 
 The game can be shown as a 3D diorama: rooms become blocks (walls stand up, water and pits sink), trees, rocks, bushes and statues grow into rounded voxel shapes built from their own pixel art, the sun casts shadows, characters and bosses stand on cards built from their pixel sprites, and dark rooms are lit by real lights. Switch between **VIEW: 3D** and **VIEW: 2D** on the title screen or the pause menu (or add `?3d` / `?2d` to the URL). The game rules are identical in both views; only the drawing changes. It uses [Three.js](https://threejs.org) r149 (MIT, vendored in `js/vendor/`), loaded only when 3D is on.
@@ -52,7 +54,7 @@ The overworld is a 10×10 grid of 100 screens. Each of the ten biomes, in biblic
 | 4 | Pharaoh's Pyramid | Exodus 7–14 | **Pharaoh** — plagues of frogs, locusts, darkness, serpents | Rod of Moses |
 | 5 | Walls of Jericho | Joshua 6 | **Colossus of Jericho** — stone skin only the Shofar can crack | Shofar |
 | 6 | Valley of Elah | 1 Samuel 17 | **Goliath of Gath** — only a stone to the forehead hurts | Sling of David |
-| 7 | Furnace of Babylon | Daniel 2–3 | **The Great Image** — head of gold to feet of clay, five phases | Shield of Faith (reflects projectiles) |
+| 7 | Furnace of Babylon | Daniel 2–3 | **The Great Image** — head of gold to feet of clay; it slides about collapsed, rises every ten seconds or so, and the top section can only be struck while it stands (the first blow stuns it) | Shield of Faith (reflects projectiles) |
 | 8 | **The Temptation** | Matthew 4 | **The Tempter** — three trials: Stones, the Pinnacle, the Kingdoms | Sword of the Spirit |
 | 9 | The Empty Tomb | Matthew 28 | **Death** — shrouded in darkness until you seize the light | Armor of Light |
 | 10 | The Abyss | Revelation 12 | **The Dragon** — strips away your weapons; stun each head with the Word of Our Testimony and strike it with the Blood of the Lamb (three strikes per head), then ride a white horse against the beast itself (Revelation 12:11, 19:14) | Word of Our Testimony, Blood of the Lamb (Crown of Life after the Dragon) |
