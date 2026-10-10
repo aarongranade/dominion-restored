@@ -26,11 +26,10 @@ Notes for whoever builds it:
 
 - **First-person mode:** an old-school first-person view, like Doom, built on the existing 3D view (`js/render3d.js`) as a third VIEW option. A first playable version is about 2–3 sessions; polished with bosses rebalanced is about 6–10.
 - **Fully 3D bosses:** start with the Serpent and the Dragon.
-- **Camera that follows the hero:** being tested as `CAMERA: FOLLOW` under OPTIONS (3D view only). Decide whether to keep it, tune the zoom (`R3D.ZOOM`), or make it the default.
+- **Follow camera:** now the default (`CAMERA: FOLLOW` under OPTIONS, 3D view only). Possible tuning: the zoom (`R3D.ZOOM`), or pulling back during boss fights so attacks from the edges stay visible.
 - **Before a store launch:**
   - An art polish pass (hero, bosses, title screen, icon, store screenshots and a 30-second trailer).
   - An easier mode for kids and families.
   - Spanish and Portuguese translations.
   - Native touches in the app (vibration on hits, Game Center achievements, game controller support).
-- **Hero look in the pause menu:** today it can only be changed under OPTIONS on the title screen.
 - **Microsoft Store:** package the Windows app as MSIX (it currently runs unpackaged).

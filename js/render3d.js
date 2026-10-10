@@ -24,9 +24,9 @@ const R3D = {
   },
   toggle() { this.setOn(!this.on); },
   label() { return 'VIEW: ' + (this.on ? '3D' : '2D'); },
-  // camera: ROOM shows the whole room; FOLLOW moves in closer and glides after the hero
+  // camera: FOLLOW (the default) moves in closer and glides after the hero; ROOM shows the whole room
   CAM_PREF: 'dominion-restored-camera', ZOOM: .62,
-  follow() { try { return localStorage.getItem(this.CAM_PREF) === 'follow'; } catch (e) { return false; } },
+  follow() { try { return localStorage.getItem(this.CAM_PREF) !== 'room'; } catch (e) { return true; } }, // FOLLOW is the default
   toggleCam() { try { localStorage.setItem(this.CAM_PREF, this.follow() ? 'room' : 'follow'); } catch (e) { } },
   camLabel() { return 'CAMERA: ' + (this.follow() ? 'FOLLOW' : 'ROOM'); },
   load() {
