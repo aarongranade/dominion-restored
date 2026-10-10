@@ -416,28 +416,46 @@ function toTitle() { G = freshState(); G.mode = 'title'; G.menu = 0; Aud.music('
 
 /* ---------- title / pause / ending ---------- */
 /* title menu entries */
-const menuY = () => titleOptions().length > 6 ? 138 : 150, menuDY = () => { const n = titleOptions().length; return n > 6 ? 10 : n > 4 ? 11 : 13; };
+const menuY = () => 150, menuDY = () => titleOptions().length > 4 ? 11 : 13;
 function titleOptions() {
   const o = Save.has() ? [['continue', 'CONTINUE']] : [];
-  o.push(['new', 'NEW GAME'], ['look', 'HERO: < ' + (HeroLook.get() + 1) + ' OF ' + HERO_LOOKS.length + ' >'], ['sound', 'SOUND: ' + (Aud.muted ? 'OFF' : 'ON')]);
+  o.push(['new', 'NEW GAME'], ['options', 'OPTIONS']);
+  return o;
+}
+/* the OPTIONS box that opens over the title screen */
+const OPT_X = 98, OPT_Y = 132, OPT_DY = 14;
+function optionList() {
+  const o = [['look', 'HERO: < ' + (HeroLook.get() + 1) + ' OF ' + HERO_LOOKS.length + ' >'], ['sound', 'SOUND: ' + (Aud.muted ? 'OFF' : 'ON')]];
   if (!R3D.failed) o.push(['view', R3D.label()]);
+  o.push(['back', 'BACK']);
   return o;
 }
 function updateTitle(dt) {
+  if (G.titleSub) { updateOptions(); return; }
   const opts = titleOptions().length;
   if (Input.consume('mup')) { G.menu = (G.menu + opts - 1) % opts; Aud.sfx('select'); }
   if (Input.consume('mdown')) { G.menu = (G.menu + 1) % opts; Aud.sfx('select'); }
-  const cur = titleOptions()[G.menu];
-  if (cur && cur[0] === 'look') { // left/right (or A) picks how the hero looks
-    const n = HERO_LOOKS.length, step = Input.consume('mleft') ? -1 : Input.consume('mright') || Input.consume('a') ? 1 : 0;
-    if (step) { HeroLook.set((HeroLook.get() + step + n) % n); G.p.look = HeroLook.get(); Aud.init(); Aud.sfx('select'); return; }
-  }
   if (Input.consume('a') || Input.consume('start')) {
     Aud.init(); Aud.resume(); Aud.sfx('confirm');
     const sel = titleOptions()[G.menu][0];
     if (sel === 'new') newGame(); else if (sel === 'continue') { const s = Save.load(); if (s) applySave(s); else newGame(); }
-    else if (sel === 'sound') Aud.setMuted(!Aud.muted);
-    else if (sel === 'view') R3D.toggle();
+    else if (sel === 'options') { G.titleSub = true; G.optMenu = 0; Input.clear(); }
+  }
+}
+function updateOptions() {
+  const list = optionList(), n = list.length, close = () => { G.titleSub = false; Aud.sfx('select'); Input.clear(); };
+  if (Input.consume('mup')) { G.optMenu = (G.optMenu + n - 1) % n; Aud.sfx('select'); }
+  if (Input.consume('mdown')) { G.optMenu = (G.optMenu + 1) % n; Aud.sfx('select'); }
+  if (Input.consume('b') || Input.consume('start')) { close(); return; }
+  const sel = list[G.optMenu][0];
+  if (sel === 'look') { // left/right (or A) picks how the hero looks
+    const k = HERO_LOOKS.length, step = Input.consume('mleft') ? -1 : Input.consume('mright') || Input.consume('a') ? 1 : 0;
+    if (step) { HeroLook.set((HeroLook.get() + step + k) % k); G.p.look = HeroLook.get(); Aud.init(); Aud.sfx('select'); }
+    return;
+  }
+  if (Input.consume('a')) {
+    Aud.init(); Aud.resume(); Aud.sfx('confirm');
+    if (sel === 'sound') Aud.setMuted(!Aud.muted); else if (sel === 'view') R3D.toggle(); else close();
   }
 }
 function updatePause(dt) {
@@ -609,14 +627,22 @@ function drawTitle(c) {
   for (let i = 0; i < 24; i++) { const y = 168 - i * 2.8, x = 40 + Math.sin(i * .6 + G.t * 2) * 8; disc(c, '#58c848', Math.round(x), Math.round(y), 2); }
   disc(c, '#58c848', 40 + Math.round(Math.sin(24 * .6 + G.t * 2) * 8), 100, 3); R(c, '#f83838', 41 + Math.round(Math.sin(24 * .6 + G.t * 2) * 8), 98, 1, 1);
   // the hero, as chosen on the HERO line, standing on the hill with the staff
-  { const lk = HeroLook.get(), img = playerSprite(0, Math.floor(G.t * 2) % 2 && titleOptions()[G.menu] && titleOptions()[G.menu][0] === 'look' ? 1 : 0, null, lk);
+  { const lk = HeroLook.get(), img = playerSprite(0, Math.floor(G.t * 2) % 2 && G.titleSub && optionList()[G.optMenu][0] === 'look' ? 1 : 0, null, lk);
     c.save(); c.translate(184, 128); c.scale(2, 2); c.drawImage(img, 0, 0); c.restore();
     R(c, '#4a2a10', 214, 124, 2, 36); R(c, '#f8f8c8', 214, 120, 2, 5); }
   // title
   textBig(c, 'DOMINION', 128, 14, '#f8d838', '#701818', 4); textBig(c, 'RESTORED', 128, 50, '#fcfcfc', '#2a2a80', 4);
   textC(c, 'FROM EDEN TO REVELATION', 128, 88, '#f8e8a0');
   titleOptions().forEach(([, l], i) => { const y = menuY() + i * menuDY(), bw = Math.max(136, textW(l) + 24); R(c, 'rgba(0,0,0,.55)', 128 - bw / 2, y - 2, bw, 11); textC(c, (G.menu === i && Math.floor(G.t * 3) % 2 === 0 ? '> ' : G.menu === i ? '> ' : '  ') + l, 128, y, G.menu === i ? '#f8d838' : '#c8c8d8'); });
-  if (titleOptions().length <= 6) textC(c, 'TAP OR PRESS A', 128, 208, '#a0a0c0'); text(c, 'V1.0', 226, 214, '#707090');
+  textC(c, 'TAP OR PRESS A', 128, 208, '#a0a0c0'); text(c, 'V1.0', 226, 214, '#707090');
+  if (G.titleSub) { // the options box, beside the hero so a new look shows right away
+    const list = optionList(), h = 26 + list.length * OPT_DY;
+    c.globalAlpha = .6; R(c, '#000', 0, 0, W, H); c.globalAlpha = 1;
+    drawBox(c, OPT_X - 76, OPT_Y - 20, 152, h);
+    textC(c, 'OPTIONS', OPT_X, OPT_Y - 12, '#8af');
+    list.forEach(([, l], i) => textC(c, (G.optMenu === i ? '> ' : '  ') + l, OPT_X, OPT_Y + 4 + i * OPT_DY, G.optMenu === i ? '#f8d838' : '#c8c8d8'));
+    const lk = HeroLook.get(); c.save(); c.translate(184, 128); c.scale(2, 2); c.drawImage(playerSprite(0, Math.floor(G.t * 2) % 2, null, lk), 0, 0); c.restore();
+  }
 }
 const PAUSE_Y = 156;
 function drawPause(c) {
@@ -721,6 +747,12 @@ function boot() {
     Aud.init(); Aud.resume();
     const m = G.mode; if (m === 'title') {
       const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * H, n = titleOptions().length;
+      if (G.titleSub) { // a tap on an option picks it; a tap outside the box closes it
+        const list = optionList(), x = (e.clientX - r.left) / r.width * W;
+        for (let i = 0; i < list.length; i++) { const yy = OPT_Y + 4 + i * OPT_DY; if (y >= yy - 5 && y <= yy + 9 && x > OPT_X - 76 && x < OPT_X + 76) { G.optMenu = i; if (list[i][0] === 'look' && x < OPT_X - 30) Input.press.mleft = true; else Input.press.a = true; return; } }
+        if (x < OPT_X - 76 || x > OPT_X + 76 || y < OPT_Y - 20 || y > OPT_Y + 6 + list.length * OPT_DY) Input.press.b = true;
+        return;
+      }
       for (let i = 0; i < n; i++) { const yy = menuY() + i * menuDY(); if (y >= yy - 5 && y <= yy + 11) { G.menu = i; Input.press.a = true; return; } }
       Input.press.a = true;
     } else if (m === 'dialog' || m === 'gameover' || m === 'ending') Input.press.a = true;
