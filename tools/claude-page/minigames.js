@@ -14,18 +14,19 @@ const MINI = {
 /* ---- 1. Eden: fleeing the garden (Genesis 3:22-24) ----
    A vertical scroller. Adam and Eve run up the screen toward the garden's east gate while the angel
    with the flaming sword follows behind. Thorns, trees, serpents, lions and boars are in the way; each
-   hit lets the angel close in. Three hits and the run restarts from the last checkpoint (every 30 s).
-   After two minutes the gate comes into view, and a cutscene shows the angel taking his place in it. */
+   hit lets the angel close in. Three hits and the run restarts from the last checkpoint (every 20 s).
+   After one minute the gate comes into view, and a cutscene shows the angel taking his place in it. */
 class EdenRun {
   constructor() {
-    this.LEN = 120; this.th = OTH[0]; this.t = 0; this.shake = 0;
+    this.LEN = 60; this.CP = 20; this.th = OTH[0]; // one minute, a checkpoint every 20 seconds
+    this.t = 0; this.shake = 0;
     this.adam = { a: '#f0b088', b: '#6a3a18', c: '#f0b088' }; // skin, hair, skin (the tunic colour becomes skin: fig leaves are drawn on top)
     this.eve = { a: '#e8a070', b: '#a04818', c: '#e8a070' };
     this.reset(0);
   }
   reset(T) {
-    Object.assign(this, { T, checkpoint: T, objs: [], fx: [], leaving: false, px: 128, py: 164, gap: 3, inv: 1.2, lastHit: T, spawnT: 1.2, state: 'run', gate: null, scene: null, ax: 128, ay: 260, ct: 0 });
-    this.dist = T * 70;
+    Object.assign(this, { T, checkpoint: T, objs: [], fx: [], leaving: false, px: 128, py: 164, gap: 3, inv: 1.2, lastHit: T, lastGap: 6, state: 'run', gate: null, scene: null, ax: 128, ay: 260, ct: 0 });
+    this.dist = T * 70; this.nextAt = this.dist + 90; // spawning is by distance run, so groups stay apart at any speed
   }
   begin() {
     Aud.music('o1');
@@ -82,25 +83,28 @@ class EdenRun {
     }
     if (this.state !== 'run') return;
     // what comes next, getting busier as the run goes on
-    this.spawnT -= dt;
-    if (this.spawnT <= 0 && this.T < this.LEN - 3) { this.spawnT = Math.max(.5, 1.3 - k * .7); this.spawn(); }
-    if (this.T >= this.checkpoint + 30 && this.T < this.LEN) { this.checkpoint += 30; G.banner('CHECKPOINT: ' + Math.round(this.checkpoint / this.LEN * 100) + '% OF THE WAY', 1.6); Aud.sfx('key'); }
-    if (this.gap < 3 && this.T - this.lastHit > 20) { this.gap++; this.lastHit = this.T; Aud.sfx('heart'); } // twenty clean seconds win back a heart
+    if (this.dist >= this.nextAt && this.T < this.LEN - 3) this.nextAt = this.dist + this.spawn(k);
+    if (this.T >= this.checkpoint + this.CP && this.T < this.LEN) { this.checkpoint += this.CP; G.banner('CHECKPOINT: ' + Math.round(this.checkpoint / this.LEN * 100) + '% OF THE WAY', 1.6); Aud.sfx('key'); }
+    if (this.gap < 3 && this.T - this.lastHit > 15) { this.gap++; this.lastHit = this.T; Aud.sfx('heart'); } // fifteen clean seconds win back a heart
     if (this.T >= this.LEN) { this.state = 'gate'; this.gate = { y: -40 }; G.banner('THE EAST GATE OF EDEN!', 2.4); Aud.sfx('seal'); }
   }
-  spawn() {
+  // adds the next group of obstacles and returns how far to run before the one after it
+  spawn(k) {
     const T = this.T, add = o => this.objs.push(Object.assign({ t: 0, st: 0, hw: 6, hh: 5 }, o));
-    const kinds = [['thorns', 3], ['thorn', 2], ['snake', 2]].concat(T > 10 ? [['trees', 2]] : [], T > 25 ? [['lion', 1.6]] : [], T > 45 ? [['boar', 1.6]] : []);
+    const kinds = [['thorns', 3], ['thorn', 2], ['snake', 2]].concat(T > 5 ? [['trees', 2]] : [], T > 15 ? [['lion', 1.6]] : [], T > 25 ? [['boar', 1.6]] : []);
     let r = Math.random() * kinds.reduce((a, q) => a + q[1], 0), kind = kinds[0][0];
     for (const [n, w] of kinds) { if ((r -= w) <= 0) { kind = n; break; } }
     if (kind === 'thorns') { // a hedge of thorns and thistles (Genesis 3:18) with a gap to slip through
-      const gapAt = rint(1, 10), len = rint(4, 7);
-      for (let i = 0; i < 13; i++) if ((i < gapAt || i > gapAt + 2) && Math.abs(i - (gapAt + 1)) <= len) add({ type: 'thorn', x: 32 + i * 16, y: -12 });
+      // the gap is four bushes wide and never more than four bushes from the last one, so it can always be reached
+      const gapAt = clamp(this.lastGap + rint(-4, 4), 0, 9), len = rint(4, 7); this.lastGap = gapAt;
+      for (let i = 0; i < 13; i++) if ((i < gapAt || i > gapAt + 3) && Math.abs(i - (gapAt + 1.5)) <= len) add({ type: 'thorn', x: 32 + i * 16, y: -12 });
+      return 140 - k * 25; // plenty of room before the next group, even at the slow start
     } else if (kind === 'thorn') add({ type: 'thorn', x: rnd(32, 224), y: -12 });
     else if (kind === 'trees') { const n = rint(2, 3); for (let i = 0; i < n; i++) add({ type: 'tree', x: 40 + rint(0, 11) * 16, y: -14 - i * 22 }); }
     else if (kind === 'snake') { const left = Math.random() < .5; add({ type: 'snake', x: left ? -12 : 268, y: rnd(10, 60), vx: (left ? 1 : -1) * rnd(40, 60 + T * .4), hw: 7, hh: 4 }); }
     else if (kind === 'lion') { const left = Math.random() < .5; add({ type: 'lion', x: left ? 26 : 230, y: rnd(40, 100), left }); }
     else if (kind === 'boar') add({ type: 'boar', x: clamp(this.px + rnd(-20, 20), 32, 224), y: 26 });
+    return kind === 'trees' ? 120 : 80 - k * 15;
   }
   hit() {
     if (this.inv > 0 || this.state !== 'run' && this.state !== 'gate') return;
@@ -168,7 +172,7 @@ class EdenRun {
     R(c, '#000', 0, 0, 256, 14); R(c, '#303050', 0, 13, 256, 1);
     text(c, 'FLEE EDEN', 4, 4, '#f8e8a0');
     const k = Math.min(1, this.T / this.LEN); R(c, '#283828', 64, 5, 132, 5); R(c, '#58c848', 64, 5, Math.round(132 * k), 5);
-    for (let i = 1; i < 4; i++) R(c, '#f8d838', 64 + Math.round(132 * i / 4), 4, 1, 7);
+    for (let i = this.CP; i < this.LEN; i += this.CP) R(c, '#f8d838', 64 + Math.round(132 * i / this.LEN), 4, 1, 7); // checkpoints
     R(c, '#c8b070', 196, 3, 4, 9);
     for (let i = 0; i < 3; i++) c.drawImage(heartImg(i < this.gap ? 2 : 0), 216 + i * 12, 3);
   }

@@ -24,7 +24,7 @@ Notes for whoever builds it:
 - Add every mini-game to the Claude page's **TESTS** box (`TESTS()` in `tools/claude-page/test-menu.js`) so it can be played directly. See `CLAUDE.md`.
 
 **Built so far (Claude page only, in `tools/claude-page/minigames.js`):**
-- **Dungeon 1, Eden: Fleeing the Garden.** A vertical scroller. Adam and Eve, in fig-leaf aprons, run from the angel with the flaming sword, dodging thorns, trees, serpents, lions and boars for two minutes. Three hits and the angel catches them, and the run restarts from the last checkpoint (every 30 seconds). At the end a cutscene shows the angel blocking the east gate (Genesis 3:24).
+- **Dungeon 1, Eden: Fleeing the Garden.** A vertical scroller. Adam and Eve, in fig-leaf aprons, run from the angel with the flaming sword, dodging thorns, trees, serpents, lions and boars for one minute. Hedges of thorns leave a four-bush gap, never more than four bushes from the last one. Three hits and the angel catches them, and the run restarts from the last checkpoint (every 20 seconds). At the end a cutscene shows the angel blocking the east gate (Genesis 3:24).
 
 ## Other ideas discussed
 
