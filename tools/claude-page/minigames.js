@@ -4,7 +4,7 @@
    While G.mini is set and the mode is 'play', the mini-game runs the update and draws the whole screen;
    dialogs, the pause menu and fades still use the game's own code. */
 const MINI = {
-  games: { 0: () => new EdenRun() }, // dungeon index -> mini-game
+  games: { 0: () => new EdenRun(), 1: () => new JobRun() }, // dungeon index -> mini-game
   has(d) { return !!this.games[d]; },
   start(d) { G.mini = this.games[d](); G.mini.d = d; G.bannerQ = null; G.dialog = null; setMode('play'); G.mini.begin(); },
   // back to the overworld, just outside the dungeon entrance
@@ -207,6 +207,259 @@ class EdenRun {
     const k = Math.min(1, s.t / 1.6), ay = Math.round(250 - (250 - 136) * (1 - (1 - k) * (1 - k)));
     if (s.t > 1.5 && s.t < 1.9) { c.globalAlpha = 1 - (s.t - 1.5) / .4; R(c, '#fff', 0, 0, 256, 224); c.globalAlpha = 1; }
     this.drawAngel(c, 128, ay);
+  }
+}
+
+/* ---- 2. Job's servants (Job 1:13-22) ----
+   A side scroller in the style of Super Mario Bros. 3. Three servants, one after another, each run right
+   to Job's house to tell him the news, chased by the disaster they escaped: the Sabean raiders, the fire of
+   God from heaven, and the great wind from the wilderness. Run, jump (A, hold for higher), and stay ahead;
+   hits and pits only cost time, but if the disaster catches up, that servant's run starts over.
+   Each run is about 30 seconds. When all three have arrived, Job tears his mantle and falls to the ground. */
+class JobRun {
+  constructor() {
+    this.t = 0; this.shake = 0; this.seg = 0; this.arrived = 0;
+    this.SEGS = [
+      { name: 'THE SABEANS', sky: ['#78b8f8', '#a8d8f8'], hill: '#c8a868', hill2: '#a88848', ground: OTH[2], chase: 60,
+        news: '"THE OXEN WERE PLOWING... AND THE SABEANS FELL UPON THEM, AND TOOK THEM AWAY; YEA, THEY HAVE SLAIN THE SERVANTS... AND I ONLY AM ESCAPED ALONE TO TELL THEE." (JOB 1:14-15)', tunic: '#c8a050' },
+      { name: 'FIRE FROM HEAVEN', sky: ['#601818', '#d86030'], hill: '#804030', hill2: '#5a2818', ground: OTH[2], chase: 64,
+        news: '"THE FIRE OF GOD IS FALLEN FROM HEAVEN, AND HATH BURNED UP THE SHEEP, AND THE SERVANTS, AND CONSUMED THEM; AND I ONLY AM ESCAPED ALONE TO TELL THEE." (JOB 1:16)', tunic: '#6090c8' },
+      { name: 'THE GREAT WIND', sky: ['#404858', '#8890a0'], hill: '#58606a', hill2: '#3a4048', ground: OTH[1], chase: 68,
+        news: '"THERE CAME A GREAT WIND FROM THE WILDERNESS, AND SMOTE THE FOUR CORNERS OF THE HOUSE, AND IT FELL UPON THY CHILDREN, AND THEY ARE DEAD; AND I ONLY AM ESCAPED ALONE TO TELL THEE." (JOB 1:19)', tunic: '#a85050' },
+    ];
+    this.startSeg(0);
+  }
+  begin() {
+    Aud.music('o2');
+    say(['"THERE WAS A MAN IN THE LAND OF UZ, WHOSE NAME WAS {JOB}; AND THAT MAN WAS PERFECT AND UPRIGHT." (JOB 1:1)',
+      'CARRY THE NEWS TO JOB. RUN RIGHT AND {JUMP WITH A} (HOLD IT TO JUMP HIGHER). STAY AHEAD OF THE DISASTER BEHIND YOU!']);
+  }
+  /* ---------- the course for one servant ---------- */
+  startSeg(s) {
+    this.seg = s; const S = this.SEGS[s];
+    this.level = this.genLevel(s);
+    this.p = { x: 40, y: 150, vx: 0, vy: 0, w: 10, h: 14, ground: false, coyote: 0, jumpBuf: 0, stun: 0, inv: 1, face: 1, safeX: 40 };
+    this.cam = 0; this.cx = -90; this.haz = []; this.fx = []; this.hazT = 2; this.gustT = 3; this.gust = 0;
+    this.state = 'run'; this.at = 0; this.caughtSaid = false; this.scene = null;
+    if (s > 0) G.banner('WHILE HE WAS YET SPEAKING, THERE CAME ALSO ANOTHER... (JOB 1:' + (15 + s) + ')', 2.6);
+  }
+  genLevel(s) {
+    const r = mulberry32(211 + s * 37), ri = (a, b) => a + Math.floor(r() * (b - a + 1)), W = 150, grid = [];
+    for (let c = 0; c < W; c++) grid.push(new Array(14).fill(0));
+    let g = 11, c = 0;
+    const col = top => { for (let y = top; y < 14; y++) grid[c][y] = 1; c++; };
+    while (c < 10) col(g);
+    while (c < W - 14) {
+      const f = r();
+      // every obstacle is followed by at least four blocks of firm ground: room to land a full jump and run up to the next
+      const land = () => { for (let i = 0; i < 4; i++) col(g); };
+      if (f < .22) { const n = ri(3, 6); for (let i = 0; i < n; i++) col(g); }
+      else if (f < .42) { c += ri(2, 3); land(); } // a pit
+      else if (f < .56) { g = clamp(g + pick([-2, -1, 1, 2]), 8, 12); land(); } // a step
+      else if (f < .7) { col(g); grid[c - 1][g - 1] = 2; if (r() < .5) grid[c - 1][g - 2] = 2; land(); } // a wall of blocks
+      else if (f < .82) { for (let i = 0; i < 4; i++) { if (i === 1 || i === 2) grid[c][g - 2] = 2; c++; } land(); } // a wide pit with a ledge to hop on, two blocks up
+      else if (s === 1) { col(g); grid[c - 1][g - 1] = 3; land(); } // burning ground
+      else { land(); grid[c - 3][g - 4] = 2; grid[c - 2][g - 4] = 2; } // a floating ledge (just scenery to jump on)
+    }
+    g = 11; while (c < W) col(g); // the last stretch, to Job's house
+    return { W, grid, house: (W - 6) * 16 };
+  }
+  solid(x, y) {
+    const L = this.level, c = Math.floor(x / 16), r = Math.floor(y / 16);
+    if (c < 0 || c >= L.W) return true; if (r < 0 || r > 13) return false;
+    const v = L.grid[c][r]; return v === 1 || v === 2;
+  }
+  /* ---------- update ---------- */
+  update(dt) {
+    this.t += dt; if (this.shake > 0) this.shake -= dt;
+    if (this.state === 'scene') return this.updateScene(dt);
+    const p = this.p, S = this.SEGS[this.seg];
+    for (let i = this.fx.length - 1; i >= 0; i--) { const f = this.fx[i]; f.life -= dt; f.x += f.vx * dt; f.y += f.vy * dt; f.vy += 200 * dt; if (f.life <= 0) this.fx.splice(i, 1); }
+    if (this.state === 'arrive') { // the servant kneels before Job and gives the news
+      this.at += dt; this.cx -= 80 * dt; p.vx = 0;
+      if (this.at > 4.2 && !this.leaving) {
+        this.leaving = true;
+        startFade(() => { this.leaving = false; this.arrived++; if (this.seg < 2) this.startSeg(this.seg + 1); else { this.state = 'scene'; this.scene = { t: 0 }; this.cam = this.level.W * 16 - 256; } }, .6);
+      }
+      return;
+    }
+    if (this.state === 'caught') {
+      this.at += dt;
+      if (this.at > 1 && !this.caughtSaid) { this.caughtSaid = true; say([(this.seg === 0 ? 'THE RAIDERS' : this.seg === 1 ? 'THE FIRE' : 'THE WHIRLWIND') + ' OVERTOOK YOU. RUN AGAIN, AND STAY AHEAD!'], () => this.startSeg(this.seg)); }
+      return;
+    }
+    // the servant
+    if (p.stun > 0) p.stun -= dt; if (p.inv > 0) p.inv -= dt;
+    const want = p.stun > 0 ? 0 : Input.dx * 96;
+    p.vx += clamp(want - p.vx, -700 * dt, 700 * dt);
+    if (this.gust > 0) { this.gust -= dt; p.vx -= 160 * dt; } // the wind pushes back
+    if (Input.dx) p.face = Math.sign(Input.dx);
+    if (Input.consume('a') || Input.consume('mup')) p.jumpBuf = .14; else p.jumpBuf -= dt;
+    p.coyote = p.ground ? .09 : p.coyote - dt;
+    if (p.jumpBuf > 0 && p.coyote > 0 && p.stun <= 0) { p.vy = -268; p.jumpBuf = 0; p.coyote = 0; Aud.sfx('select'); } // jumps clear three blocks
+    if (p.vy < -110 && !Input.held.a && !Input.held.mup) p.vy = -110; // let go early for a short hop
+    p.vy = Math.min(420, p.vy + 720 * dt);
+    // move across, then up or down, against the blocks
+    p.x += p.vx * dt;
+    if (p.vx > 0 && (this.solid(p.x + p.w, p.y + 1) || this.solid(p.x + p.w, p.y + p.h - 1))) { p.x = Math.floor((p.x + p.w) / 16) * 16 - p.w - .01; p.vx = 0; }
+    if (p.vx < 0 && (this.solid(p.x, p.y + 1) || this.solid(p.x, p.y + p.h - 1))) { p.x = Math.floor(p.x / 16) * 16 + 16.01; p.vx = 0; }
+    if (p.x < this.cam + 2) { p.x = this.cam + 2; p.vx = Math.max(0, p.vx); }
+    p.y += p.vy * dt; p.ground = false;
+    if (p.vy >= 0 && (this.solid(p.x + 1, p.y + p.h) || this.solid(p.x + p.w - 1, p.y + p.h))) { p.y = Math.floor((p.y + p.h) / 16) * 16 - p.h; p.vy = 0; p.ground = true; }
+    if (p.vy < 0 && (this.solid(p.x + 1, p.y) || this.solid(p.x + p.w - 1, p.y))) { p.y = Math.floor(p.y / 16) * 16 + 16; p.vy = 0; }
+    if (p.ground && this.solid(p.x - 14, p.y + p.h + 2) && this.solid(p.x + p.w + 14, p.y + p.h + 2)) p.safeX = p.x; // firm ground on both sides: a safe place to come back to
+    if (p.y > 230) { p.x = Math.max(p.safeX, this.cam + 2); this.cx = Math.min(this.cx, p.x - 70); p.y = 60; p.vy = 0; p.stun = .5; p.inv = 1; Aud.sfx('fall'); } // fell in a pit: back to firm ground, time lost
+    const c0 = Math.floor((p.x + p.w / 2) / 16), r0 = Math.floor((p.y + p.h - 2) / 16);
+    if (this.level.grid[c0] && this.level.grid[c0][r0] === 3) this.hurt(); // burning ground
+    // the camera follows, and never goes back
+    this.cam = clamp(Math.max(this.cam, p.x - 100), 0, this.level.W * 16 - 256);
+    // the disaster behind: always just in view on the left edge, and faster than standing still
+    this.cx = Math.max(this.cx + S.chase * dt, this.cam + 10);
+    if (this.cx >= p.x - 4) { this.state = 'caught'; this.at = 0; this.shake = .5; Aud.sfx('over'); return; }
+    this.hazards(dt);
+    if (p.x >= this.level.house - 30) { this.state = 'arrive'; this.at = 0; this.p.x = this.level.house - 30; G.banner(S.news, 4); Aud.sfx('seal'); }
+  }
+  hurt() {
+    const p = this.p; if (p.inv > 0) return;
+    p.stun = .55; p.inv = 1.3; p.vx = -40; this.shake = .2; Aud.sfx('hurt');
+    for (let i = 0; i < 8; i++) this.fx.push({ x: p.x + 5, y: p.y + 6, vx: rnd(-60, 60), vy: rnd(-90, -20), life: .5, col: pick(['#f83838', '#fff']) });
+  }
+  hazards(dt) {
+    const p = this.p, s = this.seg;
+    this.hazT -= dt;
+    if (this.hazT <= 0) {
+      if (s === 0) { this.hazT = rnd(1.8, 2.6); this.haz.push({ k: 'arrow', x: this.cam - 8, y: p.y + rnd(2, 10), warn: .7, t: 0 }); } // the raiders shoot from behind
+      if (s === 1) { this.hazT = rnd(.9, 1.4); this.haz.push({ k: 'fire', x: p.x + rnd(30, 150), y: -10, warn: .8, t: 0 }); } // fire falls from heaven
+      if (s === 2) { this.hazT = rnd(1.4, 2.2); this.haz.push({ k: 'plank', x: this.cam - 8, y: rnd(110, 175), warn: .6, t: 0, a: 0 }); } // debris on the wind
+    }
+    if (s === 2) { this.gustT -= dt; if (this.gustT <= 0) { this.gustT = rnd(3.5, 5); this.gust = 1.1; G.banner('A GUST OF WIND!', .9); } }
+    for (const h of this.haz) {
+      h.t += dt; if (h.t < h.warn) continue;
+      if (h.k === 'arrow' || h.k === 'plank') { h.x += 190 * dt; h.a = (h.a || 0) + dt * 10; }
+      else { // falling fire lands where its shadow is
+        let gy = 13; for (let r = 0; r < 14; r++) if (this.solid(h.x, r * 16)) { gy = r; break; }
+        h.y += 230 * dt; if (h.y >= gy * 16 - 4) { h.done = true; this.shake = .1; for (let i = 0; i < 8; i++) this.fx.push({ x: h.x, y: gy * 16 - 4, vx: rnd(-70, 70), vy: rnd(-120, -40), life: .5, col: pick(['#f83800', '#f8d838']) }); Aud.sfx('boom'); }
+      }
+      if (Math.abs(h.x - (p.x + p.w / 2)) < (h.k === 'fire' ? 9 : 8) && Math.abs(h.y - (p.y + p.h / 2)) < (h.k === 'fire' ? 11 : 9)) { this.hurt(); h.done = h.k !== 'plank'; }
+    }
+    this.haz = this.haz.filter(h => !h.done && h.x < this.cam + 300);
+  }
+  updateScene(dt) {
+    const sc = this.scene; sc.t += dt;
+    if (sc.t > 1.4 && !sc.rent) { sc.rent = true; Aud.sfx('hurt'); this.shake = .3; }
+    if (sc.t > 2.4 && !sc.fell) { sc.fell = true; Aud.sfx('fall'); }
+    if (sc.t > 4.6 && !sc.said) {
+      sc.said = true;
+      say(['"THEN JOB AROSE, AND {RENT HIS MANTLE}, AND SHAVED HIS HEAD, AND {FELL DOWN UPON THE GROUND}, AND WORSHIPPED." (JOB 1:20)',
+        '"NAKED CAME I OUT OF MY MOTHER\'S WOMB, AND NAKED SHALL I RETURN THITHER: {THE LORD GAVE, AND THE LORD HATH TAKEN AWAY; BLESSED BE THE NAME OF THE LORD}." (JOB 1:21)',
+        '"IN ALL THIS JOB SINNED NOT, NOR CHARGED GOD FOOLISHLY." (JOB 1:22)'], () => { Aud.sfx('seal'); MINI.finish(); });
+    }
+  }
+  /* ---------- drawing ---------- */
+  draw(c) {
+    c.save(); if (this.shake > 0) c.translate(Math.round(rnd(-2, 2)), Math.round(rnd(-2, 2)));
+    const S = this.SEGS[this.seg], cam = Math.round(this.cam);
+    // sky and big rolling hills, in layers like Super Mario Bros. 3
+    for (let i = 0; i < 14; i++) R(c, i < 7 ? S.sky[0] : S.sky[1], 0, i * 16, 256, 16);
+    for (const [col, par, h, f] of [[S.hill2, .2, 70, .018], [S.hill, .45, 46, .03]]) {
+      c.fillStyle = col; for (let x = 0; x < 256; x += 2) { const y = 176 - h - Math.sin((x + cam * par) * f) * 18 - Math.sin((x + cam * par) * f * 2.3) * 6; c.fillRect(x, Math.round(y), 2, 224 - y); }
+    }
+    if (this.seg === 1) for (let i = 0; i < 6; i++) { const x = (i * 53 - cam * .3 + 999) % 270 - 10; R(c, '#f8a038', Math.round(x), 30 + (i * 17) % 40, 2, 2); } // embers in the sky
+    // the course
+    const L = this.level, c0 = Math.floor(cam / 16);
+    for (let cc = c0; cc < c0 + 18 && cc < L.W; cc++) for (let r = 0; r < 14; r++) {
+      const v = L.grid[cc][r], x = cc * 16 - cam, y = r * 16; if (!v) continue;
+      if (v === 1) { const top = r === 0 || !L.grid[cc][r - 1] || L.grid[cc][r - 1] === 3; c.drawImage(tileImg(S.ground, top ? T.PATH : T.FLOOR, 0), x, y); if (!top) { c.globalAlpha = .35; R(c, '#000', x, y, 16, 16); c.globalAlpha = 1; } else R(c, '#58a838', x, y, 16, 3); }
+      else if (v === 2) c.drawImage(tileImg(OTH[2], T.BLOCK, 0), x, y);
+      else if (v === 3) c.drawImage(tileImg(OTH[2], T.FIRE, Math.floor(this.t * 6) % 2), x, y);
+    }
+    // Job's house, with Job outside and the servants who have already come
+    this.drawHouse(c, L.house - cam);
+    // hazards
+    for (const h of this.haz) {
+      const x = Math.round(h.x - cam), y = Math.round(h.y);
+      if (h.t < h.warn) { if (Math.floor(h.t * 10) % 2) { if (h.k === 'fire') { let gy = 13; for (let r = 0; r < 14; r++) if (this.solid(h.x, r * 16)) { gy = r; break; } c.globalAlpha = .5; R(c, '#000', x - 6, gy * 16 - 3, 12, 3); c.globalAlpha = 1; } else textC(c, '!', 8, y - 4, '#f83838'); } continue; }
+      if (h.k === 'arrow') { R(c, '#c8a060', x - 8, y, 14, 1); R(c, '#e0e0f0', x + 5, y - 1, 3, 3); R(c, '#c83838', x - 9, y - 1, 2, 3); }
+      else if (h.k === 'plank') { c.save(); c.translate(x, y); c.rotate(h.a); R(c, '#8a5a2a', -7, -2, 14, 4); R(c, '#c88040', -7, -2, 14, 1); c.restore(); }
+      else { disc(c, '#f83800', x, y, 5); disc(c, '#f8a038', x, y, 3); R(c, '#fff8c0', x - 1, y - 1, 2, 2); R(c, '#f8a038', x - 1, y - 10, 2, 6); }
+    }
+    // the servant
+    const p = this.p;
+    if (this.state !== 'scene' && !(p.inv > 0 && Math.floor(p.inv * 16) % 2 && this.state === 'run')) {
+      if (this.state === 'arrive') this.drawServant(c, p.x - cam - 3, p.y - 2, this.seg, 0, true);
+      else this.drawServant(c, p.x - cam - 3, p.y - 2, this.seg, p.ground ? (Math.abs(p.vx) > 10 ? Math.floor(this.t * 10) % 2 : 0) : 1, false, p.face);
+    }
+    for (const f of this.fx) R(c, f.col, Math.round(f.x - cam), Math.round(f.y), 2, 2);
+    // the disaster behind
+    if (this.state !== 'scene') this.drawChaser(c, Math.round(this.cx - cam));
+    // top bar
+    R(c, '#000', 0, 0, 256, 14); R(c, '#303050', 0, 13, 256, 1);
+    text(c, 'SERVANT ' + (this.seg + 1) + '/3', 4, 4, '#f8e8a0');
+    const k = clamp(p.x / (L.house - 30), 0, 1); R(c, '#383028', 86, 5, 110, 5); R(c, '#f8c838', 86, 5, Math.round(110 * k), 5);
+    if (p.x - this.cx < 90 && Math.floor(this.t * 6) % 2) text(c, 'DANGER!', 206, 4, '#f83838'); // the disaster is close
+    if (this.state === 'scene') this.drawScene(c);
+    c.restore();
+  }
+  drawServant(c, x, y, idx, fr, kneel, face) {
+    const pal = { a: this.SEGS[idx].tunic, b: '#3a2418', c: '#d89868' }, img = playerSprite(kneel ? 3 : face < 0 ? 2 : 3, kneel ? 0 : fr, pal, 0);
+    x = Math.round(x); y = Math.round(y);
+    if (kneel) { c.drawImage(img, 0, 0, 16, 11, x, y + 5, 16, 11); return; } // knelt down: draw only the top of the sprite, lower
+    c.drawImage(img, x, y);
+  }
+  drawJob(c, x, y, pose) {
+    // Job: grey hair and beard, a purple mantle
+    const pal = { a: '#7848a8', b: '#d8d8d8', c: '#e0a878' }, img = playerSprite(0, 0, pal, 0);
+    x = Math.round(x); y = Math.round(y);
+    if (pose === 'down') { // fallen on the ground, face down, sobbing
+      const sob = Math.floor(this.t * 6) % 2;
+      c.save(); c.translate(x + 8, y + 12 + sob); c.rotate(-Math.PI / 2); c.drawImage(img, -8, -8); c.restore();
+      R(c, '#e8e8e8', x - 2, y + 8 + sob, 3, 4);
+      for (let i = 0; i < 2; i++) { const ty = (this.t * 40 + i * 9) % 14; R(c, '#58b8f8', x - 6 - i * 3, Math.round(y + 6 + ty), 1, 2); }
+      return;
+    }
+    c.drawImage(img, x, y);
+    R(c, '#e8e8e8', x + 5, y + 7, 6, 4); R(c, '#e8e8e8', x + 6, y + 11, 4, 1); // beard
+    if (pose === 'rent') { R(c, '#2a1840', x + 7, y + 9, 2, 6); R(c, '#e0a878', x + 7, y + 10, 1, 4); } // the torn mantle
+  }
+  drawHouse(c, hx) {
+    if (hx > 300 || hx < -120) return;
+    const gy = 176, x = Math.round(hx);
+    R(c, '#806040', x - 4, gy - 52, 72, 6); R(c, '#a07850', x - 2, gy - 56, 68, 4); // a flat roof
+    R(c, '#d8b888', x, gy - 46, 64, 46); R(c, '#b89868', x, gy - 46, 64, 2);
+    R(c, '#5a3a20', x + 26, gy - 26, 12, 26); R(c, '#3a2410', x + 28, gy - 24, 8, 24); // door
+    R(c, '#5a3a20', x + 8, gy - 36, 8, 8); R(c, '#5a3a20', x + 48, gy - 36, 8, 8); // windows
+    // Job stands before his door, with the servants who have already come kneeling before him
+    if (this.state !== 'scene') this.drawJob(c, x - 18, gy - 16, 'stand');
+    const waiting = this.arrived;
+    for (let i = 0; i < waiting; i++) this.drawServant(c, x - 40 - i * 14, gy - 16, i, 0, true);
+  }
+  drawChaser(c, x) {
+    const s = this.seg, t = this.t;
+    if (x < -80) return;
+    if (s === 0) { // the Sabeans on camels, spears raised
+      for (let i = 0; i < 3; i++) {
+        const cx = x - 10 - i * 22, bob = Math.round(Math.sin(t * 10 + i) * 1.5), gy = 176;
+        c.drawImage(sprite('beast', { a: '#c8a060', b: '#8a6a3a', c: '#f0d8a0' }, Math.floor(t * 8 + i) % 2), cx - 8, gy - 16 + bob);
+        c.drawImage(sprite('human', { a: '#303030', b: '#181818', c: '#a87050' }, 0), cx - 8, gy - 28 + bob);
+        R(c, '#a07040', cx + 6, gy - 40 + bob, 1, 16); R(c, '#e0e0f0', cx + 5, gy - 42 + bob, 3, 3);
+      }
+    } else if (s === 1) { // a wall of fire
+      for (let y = 20; y < 192; y += 6) { const w = 14 + Math.sin(t * 9 + y * .3) * 6; R(c, '#f83800', x - 40, y, Math.round(40 + w), 6); R(c, '#f8a038', x - 30, y + 1, Math.round(26 + w * .6), 4); R(c, '#f8f038', x - 22, y + 2, Math.round(12 + w * .3), 2); }
+    } else { // the whirlwind
+      for (let i = 0; i < 18; i++) {
+        const y = 176 - i * 9, w = 6 + i * 2.2, sw = Math.sin(t * 6 + i * .5) * (4 + i * .6);
+        c.globalAlpha = .85; R(c, i % 2 ? '#6a7080' : '#9098a8', Math.round(x - w + sw - 16), y, Math.round(w * 2), 7); c.globalAlpha = 1;
+        if (i % 4 === 0) R(c, '#5a3a20', Math.round(x - 16 + Math.cos(t * 8 + i) * w), y + 2, 3, 2); // debris swept up in it
+      }
+    }
+  }
+  drawScene(c) {
+    // the last servant has spoken: Job tears his mantle and falls to the ground, the three servants kneeling
+    const sc = this.scene, hx = this.level.house - this.cam, gy = 176;
+    const pose = sc.t < 1.4 ? 'stand' : sc.t < 2.4 ? 'rent' : 'down';
+    const jx = hx - 18 + (pose === 'stand' ? Math.round(Math.sin(sc.t * 30) * (sc.t > .6 ? 1 : 0)) : 0);
+    this.drawJob(c, jx, gy - 16, pose);
+    if (pose === 'rent' && Math.floor(sc.t * 10) % 2) for (let i = 0; i < 3; i++) R(c, '#7848a8', jx + 4 + i * 4, gy - 6 + i * 2, 2, 2);
   }
 }
 

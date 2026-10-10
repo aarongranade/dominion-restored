@@ -25,6 +25,7 @@ Notes for whoever builds it:
 
 **Built so far (Claude page only, in `tools/claude-page/minigames.js`):**
 - **Dungeon 1, Eden: Fleeing the Garden.** A vertical scroller. Adam and Eve, in fig-leaf aprons, run from the angel with the flaming sword, dodging thorns, trees, serpents, lions and boars for one minute. Hedges of thorns leave a four-bush gap, never more than four bushes from the last one. Three hits and the angel catches them, and the run restarts from the last checkpoint (every 20 seconds). At the end a cutscene shows the angel blocking the east gate (Genesis 3:24).
+- **Dungeon 2 (the Ark's slot), the owner's choice: Job's servants (Job 1:13-22).** A side scroller in the style of Super Mario Bros. 3, in three 30-second runs. Each servant runs right to Job's house to bring the news, chased by the disaster he escaped: the Sabean raiders on camels firing arrows, the fire of God from heaven (a wall of flame, falling fire, burning ground), and the great wind (a whirlwind, gusts and flying debris). Hits and pits cost time; if the disaster catches up, that servant's run restarts. The servants gather at the house, and the closing cutscene shows Job tearing his mantle and falling to the ground, then Job 1:20-22.
 
 ## Other ideas discussed
 
