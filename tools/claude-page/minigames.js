@@ -1,5 +1,5 @@
-/* Claude-page-only mini-games (see ROADMAP.md: one per dungeon, played in a circus tent that goes up on a
-   beaten dungeon's overworld screen). Not part of the real game or the app yet: tools/claude-page/build.py appends this file to
+/* Claude-page-only mini-games (see ROADMAP.md: one per dungeon, played in a circus tent that goes up near a
+   beaten dungeon, on the next screen over). Not part of the real game or the app yet: tools/claude-page/build.py appends this file to
    the Claude page build only, before test-menu.js.
    While G.mini is set and the mode is 'play', the mini-game runs the update and draws the whole screen;
    dialogs, the pause menu and fades still use the game's own code. */
@@ -785,28 +785,47 @@ class JobRun {
     if (G.mode === 'pause') drawPause(c);
     drawFade(c);
   };
-  /* the circus tent: once a dungeon is beaten, a tent goes up on its overworld screen, near the entrance,
-     and walking into the tent's door plays that dungeon's mini-game (the dungeon entrance stays a dungeon) */
+  /* the circus tent: once a dungeon is beaten, a tent goes up on a screen next to the dungeon's screen in
+     the same land, and walking into the tent's door plays that dungeon's mini-game */
   const OPEN = new Set([T.FLOOR, T.PATH, T.DECO, T.LAND]);
+  // the tent's screen: next to the dungeon's screen in the same land, but never the land's first screen
+  // (spring, sign, ladder), its gate screen or the dungeon screen itself
+  const tentScr = {};
+  MINI.tentScreen = function (d) {
+    if (d in tentScr) return tentScr[d];
+    const skip = new Set([WORLD.dungeon[d], WORLD.entry[d], WORLD.exit[d]]), land = i => WORLD.scr[i].k === d + 1 && !skip.has(i);
+    const seen = new Set([WORLD.dungeon[d]]), q = [WORLD.dungeon[d]];
+    while (q.length) { // nearest such screen by walking distance, adjacent ones first
+      const c = q.shift();
+      for (const n of Object.values(WORLD.scr[c].exits).sort((a, b) => a - b)) {
+        if (seen.has(n) || WORLD.scr[n].k !== d + 1) continue;
+        if (land(n)) return (tentScr[d] = n);
+        seen.add(n); q.push(n);
+      }
+    }
+    return (tentScr[d] = null);
+  };
   function placeTent(room) {
-    const e = room.info && room.info.entrance;
-    if (!e || !G.cleared[e.d] || !MINI.has(e.d)) return;
+    let d = -1; for (const k of Object.keys(MINI.games)) if (MINI.tentScreen(+k) === room.idx) d = +k;
+    if (d < 0 || !G.cleared[d]) return;
     const t = room.tiles, open = (x, y) => x >= 1 && x <= 14 && y >= 1 && y <= 10 && OPEN.has(t[y * 16 + x]);
-    // only ground the hero can walk to from the entrance counts
-    const reach = new Uint8Array(192), q = [[e.x, e.y + 1]];
-    const walk = (x, y) => x >= 1 && x <= 14 && y >= 1 && y <= 10 && !SOLID.has(t[y * 16 + x]) && t[y * 16 + x] !== T.PIT && t[y * 16 + x] !== T.FIRE;
+    // only ground the hero can walk to from the screen's exits counts
+    const walk = (x, y) => x >= 0 && x <= 15 && y >= 0 && y <= 11 && !SOLID.has(t[y * 16 + x]) && t[y * 16 + x] !== T.PIT && t[y * 16 + x] !== T.FIRE;
+    const reach = new Uint8Array(192), q = [];
+    for (let x = 0; x < 16; x++) q.push([x, 0], [x, 11]); for (let y = 0; y < 12; y++) q.push([0, y], [15, y]);
     while (q.length) { const [x, y] = q.pop(); if (!walk(x, y) || reach[y * 16 + x]) continue; reach[y * 16 + x] = 1; for (const [dx, dy] of DIRV) q.push([x + dx, y + dy]); }
-    // two open tiles for the tent, open ground in front of its door, and a few steps from the entrance
+    // two open tiles for the tent, with open ground in front of its door, as near the middle of the screen as possible
     let best = null, bd = 1e9;
     for (let y = 2; y <= 9; y++) for (let x = 1; x <= 13; x++) {
       if (!open(x, y) || !open(x + 1, y) || !open(x, y + 1) || !open(x + 1, y + 1) || !reach[(y + 1) * 16 + x]) continue;
-      if (Math.abs(x - e.x) < 3 && Math.abs(y - e.y) < 3) continue;
-      const d = Math.abs(Math.hypot(x + .5 - e.x, y - e.y) - 4);
-      if (d < bd) { bd = d; best = [x, y]; }
+      const dd = Math.hypot(x + 1 - 8, y - 5);
+      if (dd < bd) { bd = dd; best = [x, y]; }
     }
     if (!best) return;
     const [tx, ty] = best;
-    room.tent = { d: e.d, x: tx * 16, y: ty * 16, door: { x: tx * 16 + 16, y: (ty + 1) * 16 + 4 }, armed: false };
+    room.tent = { d, x: tx * 16, y: ty * 16, door: { x: tx * 16 + 16, y: (ty + 1) * 16 + 4 }, armed: false };
+    if (!G.tentSeen) G.tentSeen = {};
+    if (!G.tentSeen[d]) { G.tentSeen[d] = true; G.banner('A CIRCUS TENT HAS GONE UP!', 2.4); }
   }
   function drawTent(c, tn) {
     const x = tn.x, y = tn.y, fl = Math.floor(G.t * 4) % 2;

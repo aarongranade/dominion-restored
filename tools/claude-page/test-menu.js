@@ -99,8 +99,8 @@
     p.sel = ACTIVE_ITEMS.find(i => p.items[i]) || null;
     for (let i = 0; i <= d; i++) { G.cleared[i] = true; G.ds[i].boss = true; G.ds[i].item = true; G.ds[i].heart = true; }
     G.overPos = { idx: WORLD.dungeon[d], x: 128, y: 60 };
-    loadOver(WORLD.dungeon[d], 128, 60); G.bannerQ = null;
-    const tn = G.room.tent; if (tn) G.overPos = { idx: WORLD.dungeon[d], x: tn.door.x, y: tn.door.y + 12 }; // come back out in front of the circus tent
+    const ts = MINI.tentScreen(d) ?? WORLD.dungeon[d]; loadOver(ts, 128, 96); G.bannerQ = null;
+    const tn = G.room.tent; G.overPos = tn ? { idx: ts, x: tn.door.x, y: tn.door.y + 12 } : { idx: ts, x: G.p.x, y: G.p.y }; // come back out in front of the circus tent
     MINI.start(d);
   }
   respawn = function () {

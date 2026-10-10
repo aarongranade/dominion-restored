@@ -4,7 +4,7 @@ Ideas the owner wants to build later. Nothing here is implemented yet. Check wit
 
 ## Post-dungeon mini-games (owner's idea)
 
-Once a dungeon's boss is defeated, a circus tent goes up on that dungeon's overworld screen, near its entrance; walking into the tent plays a mini-game unique to that dungeon (the owner's choice: the dungeon entrance itself stays a normal dungeon). Each of the ten gets its own.
+Once a dungeon's boss is defeated, a circus tent goes up on a screen next to that dungeon's screen (never on the dungeon entrance's screen); walking into the tent plays a mini-game unique to that dungeon. The owner wants every future mini-game entered the same way, and the dungeon entrance itself stays a normal dungeon. Each of the ten gets its own.
 
 **Styles to mix:** side-scrollers, endless runners and Bible quizzes, among others.
 
