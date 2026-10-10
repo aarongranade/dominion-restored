@@ -4,7 +4,7 @@
    While G.mini is set and the mode is 'play', the mini-game runs the update and draws the whole screen;
    dialogs, the pause menu and fades still use the game's own code. */
 const MINI = {
-  games: { 0: () => new EdenRun(), 1: () => new JobRun() }, // dungeon index -> mini-game
+  games: { 0: () => new EdenRun(), 1: () => new NoahArk(), 2: () => new JobRun() }, // dungeon index -> mini-game
   has(d) { return !!this.games[d]; },
   start(d) { G.mini = this.games[d](); G.mini.d = d; G.bannerQ = null; G.dialog = null; setMode('play'); G.mini.begin(); },
   // back to the overworld, just outside the dungeon entrance
@@ -210,7 +210,306 @@ class EdenRun {
   }
 }
 
-/* ---- 2. Job's servants (Job 1:13-22) ----
+/* ---- 2. Noah's Ark: gather, build, and summon (Genesis 6-8) ----
+   Three phases in the Ark's dungeon slot, each with its own soft fail state: a setback costs time or
+   materials, never the structural progress already made, so nothing is a hard restart from zero.
+   GATHER: free-roam a clearing on Ararat collecting gopher wood and pitch (Genesis 6:14) while wolves
+   prowl and the storm clock runs; reach the quota, then walk it to the ark-site marker. A wolf's touch
+   knocks a carried item loose (real lost progress); the clock running out before the quota is met
+   reverts to the last checkpoint (banked automatically every 12.5s), not to zero.
+   BUILD: place logs and seal each of the ark's three decks with pitch while the flood meter rises.
+   The storm periodically pops a log back out of an unsealed deck (a sealed deck is safe). Running out
+   of a material mid-build sends Noah back to the clearing for a quick, untimed top-up of just the
+   shortfall - but the flood keeps rising while he's away, so the trip is never free. If the flood
+   meter fills, the unsealed framing is swept away and must be reframed, but spent material is not
+   refunded and banked stock on hand carries over.
+   SUMMON: a memory-match board of the animals coming two by two - sevens for the one clean kind, the
+   dove (Genesis 7:2-3) - under a seven-day countdown (Genesis 7:4). A match boards for good; a miss
+   flips back and scrambles two other hidden tiles. If the days run out before every pair is aboard,
+   the rain starts and the board reshuffles - but boarded pairs stay boarded, so each retry is shorter
+   than the last. */
+const ARK_SPECIES = [
+  { name: 'THE DOVE', pairs: 2, shape: 'bat', pal: { a: '#f0ece0', b: '#c8c0a8', c: '#f8d838' } },
+  { name: 'THE RAVEN', pairs: 1, shape: 'bat', pal: ENEMY.raven.pal },
+  { name: 'THE LION', pairs: 1, shape: 'beast', pal: ENEMY.lion.pal },
+  { name: 'THE OX', pairs: 1, shape: 'beast', pal: { a: '#e8e0c8', b: '#5a3a20', c: '#2a1810' } },
+  { name: 'THE CAMEL', pairs: 1, shape: 'beast', pal: { a: '#c8a060', b: '#8a6a3a', c: '#f0d8a0' } },
+  { name: 'THE SERPENT', pairs: 1, shape: 'snake', pal: ENEMY.viper.pal },
+  { name: 'THE FROG', pairs: 1, shape: 'blob', pal: ENEMY.frog.pal },
+];
+class NoahArk {
+  constructor() {
+    this.t = 0; this.shake = 0; this.wood = 0; this.pitch = 0;
+    this.noahPal = { a: '#5a7a4a', b: '#d8d8d8', c: '#e0a878' }; // an elder's robe, grey hair and beard
+    this.FLOOD_LEN = 42;
+    this.phase = 'gather'; this.startGather(12, 3, true);
+  }
+  begin() {
+    Aud.music('o2');
+    say(['{THE ARK.} "MAKE THEE AN ARK OF GOPHER WOOD... AND PITCH IT WITHIN AND WITHOUT WITH PITCH." (GENESIS 6:14)',
+      'GATHER {12 LOGS} AND {3 PITCH} BEFORE THE STORM BREAKS, THEN CARRY THEM TO THE ARK SITE. WATCH FOR WOLVES - THEY WILL KNOCK YOUR LOAD LOOSE!']);
+  }
+  spawnWolf() { return { x: rnd(40, 216), y: rnd(50, 190), vx: 0, vy: 0, t: rnd(0, 2) }; }
+
+  /* ---------- shared gather sub-system: the opening phase, and the build phase's short top-up ---------- */
+  startGather(tWood, tPitch, timed) {
+    this.gA = {
+      tWood, tPitch, timed, T: 0, LEN: 50, cpT: 0, cpWood: this.wood, cpPitch: this.pitch,
+      px: 128, py: 190, inv: 0, items: [], fx: [], spawnT: .6, ready: false,
+      wolves: [this.spawnWolf(), this.spawnWolf()].slice(0, timed ? 2 : 1),
+    };
+  }
+  updateGather(dt) {
+    const g = this.gA;
+    if (g.timed) g.T += dt;
+    g.px = clamp(g.px + Input.dx * 86 * dt, 16, 240); g.py = clamp(g.py + Input.dy * 86 * dt, 26, 212);
+    g.spawnT -= dt;
+    if (g.spawnT <= 0 && g.items.length < 5) {
+      g.spawnT = rnd(1.1, 2.2);
+      const needWood = this.wood < g.tWood, needPitch = this.pitch < g.tPitch;
+      const type = needWood && needPitch ? pick(['log', 'log', 'pitch']) : needWood ? 'log' : needPitch ? 'pitch' : pick(['log', 'pitch']);
+      g.items.push({ type, x: rnd(24, 232), y: rnd(32, 204), t: 0 });
+    }
+    for (const it of g.items) it.t += dt;
+    g.items = g.items.filter(it => {
+      if (Math.hypot(it.x - g.px, it.y - g.py) < 11) { if (it.type === 'log') this.wood++; else this.pitch++; Aud.sfx('pick'); return false; }
+      return true;
+    });
+    for (const w of g.wolves) { // wander, and close in once the player strays near
+      w.t -= dt; const d = Math.hypot(g.px - w.x, g.py - w.y);
+      if (d < 60) { w.vx = (g.px - w.x) / (d || 1) * 44; w.vy = (g.py - w.y) / (d || 1) * 44; }
+      else if (w.t <= 0) { w.t = rnd(1, 2.2); const a = Math.random() * 6.283; w.vx = Math.cos(a) * 30; w.vy = Math.sin(a) * 30; }
+      w.x = clamp(w.x + w.vx * dt, 16, 240); w.y = clamp(w.y + w.vy * dt, 26, 212);
+    }
+    if (g.inv > 0) g.inv -= dt;
+    for (const w of g.wolves) if (!(g.inv > 0) && Math.hypot(w.x - g.px, w.y - g.py) < 11) {
+      g.inv = 1.1; this.shake = .2; Aud.sfx('hurt');
+      if (this.pitch > 0 && (this.wood === 0 || Math.random() < .5)) this.pitch--; else if (this.wood > 0) this.wood--;
+      for (let i = 0; i < 6; i++) g.fx.push({ x: g.px, y: g.py, vx: rnd(-50, 50), vy: rnd(-50, 50), life: .4, col: '#f83838' });
+    }
+    for (let i = g.fx.length - 1; i >= 0; i--) { const f = g.fx[i]; f.life -= dt; f.x += f.vx * dt; f.y += f.vy * dt; if (f.life <= 0) g.fx.splice(i, 1); }
+    if (g.timed) { // bank a checkpoint every 12.5 seconds, so a timeout never loses more than one quarter-run
+      g.cpT += dt;
+      if (g.cpT >= 12.5) { g.cpT -= 12.5; g.cpWood = this.wood; g.cpPitch = this.pitch; Aud.sfx('heart'); }
+    }
+    if (!g.ready && this.wood >= g.tWood && this.pitch >= g.tPitch) { g.ready = true; G.banner('ENOUGH TO BEGIN - CARRY IT TO THE ARK SITE!', 2.4); }
+    if (g.ready && Math.hypot(g.px - 128, g.py - 34) < 16) {
+      Aud.sfx('door'); const wasInitial = this.phase === 'gather'; this.gA = null; if (wasInitial) this.startBuild();
+      return;
+    }
+    if (g.timed && g.T >= g.LEN && !g.ready) { // the storm breaks: back to the checkpoint, not to zero
+      this.wood = g.cpWood; this.pitch = g.cpPitch; g.T = 0; g.cpT = 0; g.items = []; g.wolves = [this.spawnWolf(), this.spawnWolf()];
+      this.shake = .4; Aud.sfx('boom'); G.banner('THE SKY BREAKS OPEN - BACK TO THE LAST CHECKPOINT!', 2.6);
+    }
+  }
+  groundG(c) {
+    for (let y = 14; y < 224; y += 16) for (let x = 0; x < 256; x += 16) {
+      const h = (((x / 16) * 73856093) ^ ((y / 16) * 19349663)) >>> 0;
+      c.drawImage(tileImg(OTH[1], h % 11 === 0 ? T.DECO : T.FLOOR, 0), x, y);
+    }
+    for (let x = 0; x < 256; x += 16) { c.drawImage(tileImg(OTH[1], T.TREE, 0), x, 14); c.drawImage(tileImg(OTH[1], T.TREE, 0), x, 208); }
+  }
+  drawGather(c) {
+    c.save(); if (this.shake > 0) c.translate(Math.round(rnd(-2, 2)), Math.round(rnd(-2, 2)));
+    this.groundG(c);
+    const g = this.gA;
+    R(c, '#6a4a28', 112, 24, 32, 16); R(c, '#4a3218', 112, 20, 32, 6); // the ark-site marker
+    if (g.ready && Math.floor(this.t * 4) % 2) textC(c, 'HERE!', 128, 10, '#f8d838');
+    for (const it of g.items) {
+      const bob = Math.sin(it.t * 4) * 2, x = Math.round(it.x), y = Math.round(it.y + bob);
+      if (it.type === 'log') { R(c, '#8a5a2a', x - 6, y - 3, 12, 6); R(c, '#c89050', x - 6, y - 3, 12, 1); R(c, '#5a3a18', x - 6, y + 2, 12, 1); }
+      else { disc(c, '#181818', x, y, 4); disc(c, '#3a3a3a', x - 1, y - 1, 2); }
+    }
+    for (const w of g.wolves) c.drawImage(sprite('beast', ENEMY.jackal.pal, Math.floor(this.t * 8) % 2), Math.round(w.x - 8), Math.round(w.y - 8));
+    for (const f of g.fx) R(c, f.col, Math.round(f.x), Math.round(f.y), 2, 2);
+    if (!(g.inv > 0 && Math.floor(g.inv * 16) % 2)) c.drawImage(playerSprite(0, Math.floor(this.t * 8) % 2, this.noahPal, 0), Math.round(g.px - 8), Math.round(g.py - 8));
+    R(c, '#000', 0, 0, 256, 14); R(c, '#303050', 0, 13, 256, 1);
+    text(c, 'LOGS ' + this.wood + '/' + g.tWood, 4, 4, '#c89050');
+    text(c, 'PITCH ' + this.pitch + '/' + g.tPitch, 110, 4, '#a8a8a8');
+    if (g.timed) { const k = Math.max(0, 1 - g.T / g.LEN); R(c, '#283828', 206, 5, 44, 5); R(c, k < .25 ? '#f83838' : '#5890d8', 206, 5, Math.round(44 * k), 5); }
+    else text(c, 'FETCHING', 196, 4, '#f8d838');
+    c.restore();
+  }
+
+  /* ---------- build: frame and seal the three decks ---------- */
+  startBuild() {
+    this.phase = 'build';
+    this.decks = [{ logs: 0, sealed: false }, { logs: 0, sealed: false }, { logs: 0, sealed: false }];
+    this.cur = 0; this.flood = 0; this.warpT = rnd(8, 14);
+    startFade(() => { Aud.music('o2'); G.banner('BUILD THE ARK - THREE DECKS, FRAMED AND SEALED', 2.8); }, .7);
+  }
+  updateBuild(dt) {
+    if (Input.consume('mup')) { this.cur = (this.cur + 2) % 3; Aud.sfx('select'); }
+    if (Input.consume('mdown')) { this.cur = (this.cur + 1) % 3; Aud.sfx('select'); }
+    if (Input.consume('a')) this.place();
+    this.warpT -= dt;
+    if (this.warpT <= 0) {
+      this.warpT = rnd(8, 14);
+      const cand = this.decks.filter(d => !d.sealed && d.logs > 0);
+      if (cand.length) { pick(cand).logs--; this.shake = .25; Aud.sfx('warp'); }
+    }
+    if (this.decks.every(d => d.sealed)) this.startSummon();
+  }
+  place() {
+    const d = this.decks[this.cur];
+    if (d.sealed) return;
+    if (d.logs < 4) {
+      if (this.wood > 0) { this.wood--; d.logs++; Aud.sfx('clink'); if (d.logs === 4) G.banner('DECK ' + (this.cur + 1) + ' FRAMED - SEAL IT WITH PITCH!', 2); }
+      else this.needGather('wood');
+    } else if (this.pitch > 0) { this.pitch--; d.sealed = true; Aud.sfx('seal'); G.banner('DECK ' + (this.cur + 1) + ' SEALED!', 1.6); }
+    else this.needGather('pitch');
+  }
+  needGather(type) { // an untimed top-up of just the shortfall; the flood keeps rising while Noah is gone
+    let need;
+    if (type === 'wood') need = Math.max(1, this.decks.reduce((s, d) => s + (d.sealed ? 0 : Math.max(0, 4 - d.logs)), 0) - this.wood);
+    else need = Math.max(1, this.decks.filter(d => !d.sealed).length - this.pitch);
+    G.banner(type === 'wood' ? 'OUT OF TIMBER - FIND MORE WHILE THE WATERS RISE!' : 'OUT OF PITCH - THE SEAL CANNOT WAIT!', 2.4);
+    Aud.sfx('door');
+    this.startGather(type === 'wood' ? this.wood + need : this.wood, type === 'pitch' ? this.pitch + need : this.pitch, false);
+  }
+  floodFail() {
+    this.decks = this.decks.map(() => ({ logs: 0, sealed: false }));
+    this.flood = 0; this.shake = .5; Aud.sfx('over');
+    G.banner('THE FLOOD WAS TOO SWIFT - THE FRAME IS SWEPT AWAY!', 2.8);
+  }
+  drawBuild(c) {
+    if (this.gA) return this.drawGather(c);
+    c.save(); if (this.shake > 0) c.translate(Math.round(rnd(-2, 2)), Math.round(rnd(-2, 2)));
+    for (let i = 0; i < 14; i++) R(c, '#606898', 0, 14 + i * 15, 256, 15);
+    const wy = Math.round(224 - this.flood * 150);
+    R(c, '#2858a8', 0, wy, 256, 224 - wy); for (let x = -8; x < 256; x += 8) R(c, '#5890d8', x + Math.floor(this.t * 20) % 8, wy, 4, 2);
+    const hx = 60, hw = 136;
+    for (let i = 0; i < 3; i++) {
+      const d = this.decks[i], dy = 170 - i * 40;
+      R(c, d.sealed ? '#5a3a1a' : '#3a281a', hx, dy, hw, 34);
+      for (let j = 0; j < 4; j++) { const fx = hx + 6 + j * 32; R(c, j < d.logs ? '#a87038' : '#241810', fx, dy + 4, 26, 26); if (j < d.logs) R(c, '#c89050', fx, dy + 4, 26, 2); }
+      if (d.sealed) { c.globalAlpha = .3; R(c, '#181818', hx, dy, hw, 34); c.globalAlpha = 1; }
+      if (i === this.cur) R(c, '#f8d838', hx - 4, dy - 2, hw + 8, 2);
+    }
+    R(c, '#4a3218', hx - 8, 170, hw + 16, 10);
+    R(c, '#000', 0, 0, 256, 14); R(c, '#303050', 0, 13, 256, 1);
+    text(c, 'LOGS ' + this.wood, 4, 4, '#c89050'); text(c, 'PITCH ' + this.pitch, 86, 4, '#a8a8a8');
+    text(c, 'FLOOD', 156, 4, '#f8e8a0'); R(c, '#283828', 194, 5, 56, 5); R(c, this.flood > .75 ? '#f83838' : '#5890d8', 194, 5, Math.round(56 * this.flood), 5);
+    c.restore();
+  }
+
+  /* ---------- summon: match pairs aboard before the seven days end ---------- */
+  startSummon() {
+    startFade(() => {
+      this.phase = 'summon'; this.buildBoard(); Aud.music('o2');
+      say(['"OF EVERY CLEAN BEAST THOU SHALT TAKE TO THEE BY SEVENS... OF BEASTS THAT ARE NOT CLEAN BY TWO." (GENESIS 7:2)',
+        'MATCH THE PAIRS TO BRING THEM ABOARD BEFORE THE SEVEN DAYS ARE SPENT (GENESIS 7:4). A MISS COSTS TIME!']);
+    }, .8);
+  }
+  buildBoard() {
+    const list = [];
+    ARK_SPECIES.forEach((s, i) => { for (let n = 0; n < s.pairs * 2; n++) list.push(i); });
+    for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
+    this.board = list.map(sp => ({ sp, state: 'hidden' }));
+    this.cx = 0; this.cy = 0; this.flipped = []; this.checkT = 0; this.boarded = 0; this.sT = 0; this.SLEN = 64;
+  }
+  updateSummon(dt) {
+    this.sT += dt;
+    if (Input.consume('mleft')) { this.cx = (this.cx + 3) % 4; Aud.sfx('select'); }
+    if (Input.consume('mright')) { this.cx = (this.cx + 1) % 4; Aud.sfx('select'); }
+    if (Input.consume('mup')) { this.cy = (this.cy + 3) % 4; Aud.sfx('select'); }
+    if (Input.consume('mdown')) { this.cy = (this.cy + 1) % 4; Aud.sfx('select'); }
+    if (Input.consume('a')) this.flip();
+    if (this.flipped.length === 2) { this.checkT -= dt; if (this.checkT <= 0) this.resolve(); }
+    if (this.sT >= this.SLEN && this.boarded < 8) {
+      const left = this.board.map((t, k) => t.state !== 'gone' ? k : null).filter(k => k !== null);
+      const sps = left.map(k => this.board[k].sp);
+      for (let i = sps.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [sps[i], sps[j]] = [sps[j], sps[i]]; }
+      left.forEach((k, i) => { this.board[k].sp = sps[i]; this.board[k].state = 'hidden'; });
+      this.flipped = []; this.sT = 0; this.shake = .4; Aud.sfx('boom');
+      G.banner('THE RAIN HAS BEGUN - HURRY THEM ABOARD!', 2.6);
+    }
+    if (this.boarded >= 8) this.finishAll();
+  }
+  flip() {
+    const idx = this.cy * 4 + this.cx, cell = this.board[idx];
+    if (!cell || cell.state !== 'hidden' || this.flipped.length >= 2) return;
+    cell.state = 'flipped'; this.flipped.push(idx); Aud.sfx('select');
+    if (this.flipped.length === 2) this.checkT = .6;
+  }
+  resolve() {
+    const [i, j] = this.flipped, a = this.board[i], b = this.board[j];
+    if (a.sp === b.sp) {
+      a.state = 'gone'; b.state = 'gone'; this.boarded++; Aud.sfx('dove');
+      G.banner(ARK_SPECIES[a.sp].name + ' ABOARD! (' + this.boarded + '/8)', 1.4);
+    } else {
+      a.state = 'hidden'; b.state = 'hidden'; Aud.sfx('hurt');
+      const hid = this.board.map((t, k) => t.state === 'hidden' ? k : null).filter(k => k !== null);
+      if (hid.length >= 2) {
+        const k1 = pick(hid), rest = hid.filter(k => k !== k1), k2 = rest.length ? pick(rest) : undefined;
+        if (k2 !== undefined) { const tmp = this.board[k1].sp; this.board[k1].sp = this.board[k2].sp; this.board[k2].sp = tmp; }
+      }
+    }
+    this.flipped = [];
+  }
+  finishAll() { startFade(() => { this.phase = 'scene'; this.scene = { t: 0, said: false }; }, .8); }
+  drawSummon(c) {
+    c.save(); if (this.shake > 0) c.translate(Math.round(rnd(-2, 2)), Math.round(rnd(-2, 2)));
+    R(c, '#283048', 0, 14, 256, 210);
+    const ox = 48, oy = 30, cs = 40;
+    for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
+      const cell = this.board[y * 4 + x], px = ox + x * cs, py = oy + y * cs;
+      if (cell.state === 'gone') { R(c, '#1a2030', px + 2, py + 2, cs - 4, cs - 4); }
+      else {
+        R(c, '#4a3a28', px + 2, py + 2, cs - 4, cs - 4);
+        if (cell.state === 'flipped') { const sp = ARK_SPECIES[cell.sp]; c.drawImage(sprite(sp.shape, sp.pal, Math.floor(this.t * 6) % 2), px + cs / 2 - 8, py + cs / 2 - 8); }
+        else { R(c, '#6a5438', px + 6, py + 6, cs - 12, cs - 12); textC(c, '?', px + cs / 2, py + cs / 2 - 4, '#a89060'); }
+      }
+      if (x === this.cx && y === this.cy) { c.strokeStyle = '#f8d838'; c.lineWidth = 2; c.strokeRect(px + 1, py + 1, cs - 2, cs - 2); }
+    }
+    textC(c, 'ABOARD', 232, 60, '#c8d8f8'); textC(c, this.boarded + '/8', 232, 72, '#f8e8a0');
+    R(c, '#000', 0, 0, 256, 14); R(c, '#303050', 0, 13, 256, 1);
+    text(c, 'BRING THEM ABOARD', 4, 4, '#c8d8f8');
+    const days = 7, dk = Math.min(days, Math.floor(this.sT / (this.SLEN / days)));
+    for (let i = 0; i < days; i++) R(c, i < dk ? '#5890d8' : '#283848', 174 + i * 8, 5, 6, 5);
+    c.restore();
+  }
+
+  /* ---------- closing scene: the door shuts on its own (Genesis 7:16) ---------- */
+  updateScene(dt) {
+    const s = this.scene; s.t += dt;
+    if (s.t > 1.2 && !s.said) {
+      s.said = true;
+      say(['NOAH WENT IN, AND HIS SONS, AND HIS WIFE, AND HIS SONS\' WIVES... AND EVERY BEAST AFTER HIS KIND, INTO THE ARK. (GENESIS 7:13-15)',
+        '"AND THE {LORD SHUT HIM IN}." (GENESIS 7:16)'], () => { Aud.sfx('seal'); MINI.finish(); });
+    }
+  }
+  drawScene(c) {
+    c.save();
+    for (let i = 0; i < 14; i++) R(c, '#404868', 0, i * 16, 256, 16);
+    R(c, '#6a4a28', 40, 100, 176, 100); R(c, '#4a3218', 40, 92, 176, 10);
+    R(c, this.scene.t > .8 ? '#4a3218' : '#241810', 112, 140, 32, 60);
+    c.drawImage(playerSprite(0, 0, this.noahPal, 0), 96, 176);
+    for (let i = 0; i < 6; i++) { const x = 60 + i * 14, y = 190 - (i % 2) * 6; disc(c, '#5890d8', x, y, 2); }
+    c.restore();
+  }
+
+  /* ---------- top-level dispatch ---------- */
+  update(dt) {
+    this.t += dt; if (this.shake > 0) this.shake -= dt;
+    if (this.phase === 'gather') return this.updateGather(dt);
+    if (this.phase === 'build') {
+      if (this.gA) this.updateGather(dt); else this.updateBuild(dt);
+      this.flood += dt / this.FLOOD_LEN; if (this.flood >= 1) this.floodFail();
+      return;
+    }
+    if (this.phase === 'summon') return this.updateSummon(dt);
+    if (this.phase === 'scene') return this.updateScene(dt);
+  }
+  draw(c) {
+    if (this.phase === 'gather') return this.drawGather(c);
+    if (this.phase === 'build') return this.drawBuild(c);
+    if (this.phase === 'summon') return this.drawSummon(c);
+    if (this.phase === 'scene') return this.drawScene(c);
+  }
+}
+
+/* ---- 3. Job's servants (Job 1:13-22), in the Tower of Babel's slot ----
    A side scroller in the style of Super Mario Bros. 3. Three servants, one after another, each run right
    to Job's house to tell him the news, chased by the disaster they escaped: the Sabean raiders, the fire of
    God from heaven, and the great wind from the wilderness. Run, jump (A, hold for higher), and stay ahead;
@@ -230,7 +529,7 @@ class JobRun {
     this.startSeg(0);
   }
   begin() {
-    Aud.music('o2');
+    Aud.music('o3');
     say(['"THERE WAS A MAN IN THE LAND OF UZ, WHOSE NAME WAS {JOB}; AND THAT MAN WAS PERFECT AND UPRIGHT." (JOB 1:1)',
       'CARRY THE NEWS TO JOB. RUN RIGHT AND {JUMP WITH A} (HOLD IT TO JUMP HIGHER). STAY AHEAD OF THE DISASTER BEHIND YOU!']);
   }

@@ -15,7 +15,8 @@
     ['testdun', 'DUNGEON ' + pick(), true, () => startTest(testD, false)],
     ['testheaven', 'THRONE ROOM', false, () => startHeaven()],
     ['testmini1', 'MINI-GAME: FLEEING EDEN', false, () => startMini(0)],
-    ['testmini2', 'MINI-GAME: JOB\'S SERVANTS', false, () => startMini(1)],
+    ['testmini2', 'MINI-GAME: THE ARK', false, () => startMini(1)],
+    ['testmini3', 'MINI-GAME: JOB\'S SERVANTS', false, () => startMini(2)],
     // each new mini-game gets a line here (see CLAUDE.md)
   ];
 
